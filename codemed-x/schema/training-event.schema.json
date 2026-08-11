@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hm-cmed/data/codemed-x/schema/training-event.schema.json",
+  "title": "Codemed-x TrainingEvent",
+  "description": "Codemed-x 全シナリオ共通の学習イベント。HMD/PC クライアントは本スキーマの JSON のみを API Gateway に送信する（シンクライアント原則）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "user_id",
+    "session_id",
+    "scenario_id",
+    "event_type",
+    "event_timestamp_unix_ms",
+    "sequence"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "スキーマのバージョン。破壊的変更時にのみ上げる。"
+    },
+    "user_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "匿名化された学習者ID。氏名・学籍番号等の生の識別子を入れてはならない（SHA-256 + ソルトのHex先頭32文字を推奨）。"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "セッションごとの一意な GUID。アプリ起動〜シナリオ完了までを1セッションとする。"
+    },
+    "scenario_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+_v[0-9]+$",
+      "description": "シナリオ識別子。例: welfare_abuse_v1, acp_dialogue_v1, nightshift_multi_v1, pharmacist_inquiry_v1, gatekeeper_crisis_v1"
+    },
+    "event_type": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]*$",
+      "description": "イベント種別（PascalCase）。EventType.cs のカタログに定義された値のみを使う。"
+    },
+    "objective_id": {
+      "type": "string",
+      "description": "評価項目ID。schema/objectives.csv に定義され、医学教育モデル・コア・カリキュラム(令和4年度改訂版)の id に紐づく。該当なしの場合は空文字。"
+    },
+    "event_timestamp_unix_ms": {
+      "type": "integer",
+      "minimum": 1600000000000,
+      "description": "UTC のミリ秒 Unix タイムスタンプ。"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "セッション内の単調増加連番。同一ミリ秒の衝突と再送重複を解決するため必須。(user_id, session_id, sequence) が冪等キー。"
+    },
+    "score": {
+      "type": "number",
+      "description": "行動に対するスコア（加減点、または進捗率）。スコアを持たないイベントは 0。"
+    },
+    "error_type": {
+      "type": "string",
+      "description": "エラー種別。エラーなしの場合は \"none\"。ErrorType.cs のカタログに定義された値のみを使う。"
+    },
+    "device_model": {
+      "type": "string",
+      "description": "SystemInfo.deviceModel。例: Meta Quest 3, Pico 4, PC"
+    },
+    "build_version": {
+      "type": "string",
+      "description": "Application.version。"
+    },
+    "locomotion_mode": {
+      "type": "string",
+      "enum": ["teleport", "continuous", "seated", "desktop", "unknown"],
+      "description": "移動方式。VR酔い・観察行動の解析に用いる。"
+    },
+    "payload_json": {
+      "type": "string",
+      "maxLength": 4096,
+      "description": "シナリオ固有の詳細を格納する JSON 文字列（入れ子オブジェクトを避けるため文字列としてエスケープ）。個人情報・自由記述の生データを入れてはならない。"
+    }
+  }
+}

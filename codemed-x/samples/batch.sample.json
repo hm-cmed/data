@@ -1,0 +1,40 @@
+{
+  "schema_version": "1.0",
+  "batch_id": "8c1f0a44-72be-4d39-b5a1-0e6c93f27d84",
+  "sent_at_unix_ms": 1786406800000,
+  "retry_count": 0,
+  "events": [
+    {
+      "schema_version": "1.0",
+      "user_id": "a3f1c9e0b47d2856",
+      "session_id": "5f2a1c88-2b3d-4a1e-9c77-0d51ab9e4c10",
+      "scenario_id": "welfare_abuse_v1",
+      "event_type": "RiskSignObserved",
+      "objective_id": "WLF-OBS-01",
+      "event_timestamp_unix_ms": 1786406437250,
+      "sequence": 1,
+      "score": 1.0,
+      "error_type": "none",
+      "device_model": "Meta Quest 3",
+      "build_version": "0.1.0",
+      "locomotion_mode": "teleport",
+      "payload_json": "{\"target\":\"kitchen_liquor_bottles\",\"dwell_sec\":2.1}"
+    },
+    {
+      "schema_version": "1.0",
+      "user_id": "a3f1c9e0b47d2856",
+      "session_id": "5f2a1c88-2b3d-4a1e-9c77-0d51ab9e4c10",
+      "scenario_id": "welfare_abuse_v1",
+      "event_type": "ScenarioCompleted",
+      "objective_id": "",
+      "event_timestamp_unix_ms": 1786406790000,
+      "sequence": 4,
+      "score": 72.5,
+      "error_type": "none",
+      "device_model": "Meta Quest 3",
+      "build_version": "0.1.0",
+      "locomotion_mode": "teleport",
+      "payload_json": "{\"duration_sec\":390,\"risk_signs_found\":4,\"risk_signs_total\":6}"
+    }
+  ]
+}

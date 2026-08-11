@@ -1,0 +1,36 @@
+objective_id,scenario_id,label,category,corecurriculum_index,corecurriculum_ids,external_standard
+WLF-OBS-01,welfare_abuse_v1,住環境の観察からリスクサインを検出し記録する,observation,GE-03-01-03;CS-02-01-01,Jkxpst4;Jkxiru8,児童虐待防止法第5条（早期発見義務）
+WLF-OBS-02,welfare_abuse_v1,観察された事実と自身の解釈を区別して記述する,observation,CS-02-01-01,Jkxiru8,子ども家庭支援・アセスメント指針
+WLF-INT-01,welfare_abuse_v1,防衛的な保護者の話を傾聴し感情を理解する,communication,CM-01-02-02,JkxhhWA,子ども家庭支援・アセスメント指針
+WLF-INT-02,welfare_abuse_v1,高圧的・審判的な態度を取らず配慮を維持する,communication,CM-01-02-01,JkxhhV4,子ども家庭支援・アセスメント指針
+WLF-LAW-01,welfare_abuse_v1,児童福祉法第33条の一時保護要件該当性を判定する,decision,SO-01-03-05,JtPHo-Y,児童福祉法第33条 / 児童虐待防止法
+WLF-ESC-01,welfare_abuse_v1,上司へ要点を絞って報告しエスカレーションする,escalation,CS-03-06-02,Jkxir5E,SBAR
+WLF-SOC-01,welfare_abuse_v1,生活保護等の社会保障資源へ接続する,coordination,SO-01-02-01,JkxoNso,生活保護法
+ACP-SET-01,acp_dialogue_v1,SPIKES-S 面談環境とプライバシーを設定する,communication,CM-01-02-01,JkxhhV4,SPIKES / ACP（人生会議）
+ACP-PER-01,acp_dialogue_v1,SPIKES-P 患者の病状認識を確認する,communication,CS-01-01-02,Jkxirsg,SPIKES
+ACP-INV-01,acp_dialogue_v1,SPIKES-I 知りたい情報量について同意を得る,communication,CM-02-03-02,JmiwFH8,SPIKES
+ACP-KNW-01,acp_dialogue_v1,SPIKES-K 専門用語を避け段階的に情報提供する,communication,CM-02-03-03,JmiwFIA,SPIKES
+ACP-EMP-01,acp_dialogue_v1,SPIKES-E 沈黙を遮らず感情に共感的に応答する,communication,CM-01-02-02,JkxhhWA,SPIKES / NURSE
+ACP-STR-01,acp_dialogue_v1,SPIKES-S 患者と家族の合意形成を支援する,decision,CM-02-02-01,JkxhhWQ,ACP（人生会議）ガイドライン
+ACP-EOL-01,acp_dialogue_v1,人生の最終段階の医療と緩和ケアを踏まえて説明する,knowledge,GE-02-04-02;GE-01-06-01,Jli5nSE;Jli5nRk,人生の最終段階における医療・ケアの決定プロセスに関するガイドライン
+ACP-IPW-01,acp_dialogue_v1,合意内容を多職種と共有する,coordination,IP-01-01-01,Jkxp2HY,ACP（人生会議）ガイドライン
+NGT-TRI-01,nightshift_multi_v1,複数患者の緊急度に基づき対応順序を決定する,decision,CS-03-03,JnICVUg,院内迅速対応システム（RRS）
+NGT-MON-01,nightshift_multi_v1,生体モニタの重要な異常所見を把握する,observation,CS-02-04-30,Jkxir0U,院内迅速対応システム（RRS）
+NGT-SAF-01,nightshift_multi_v1,転倒・自己抜管を予防する基本的予防策を実践する,safety,CS-05-05-01,JlBpVX8,医療安全管理指針
+NGT-SAF-02,nightshift_multi_v1,インシデント発生時に緊急対応・記録・報告を行う,safety,CS-05-06-04,JlBpRvw,医療安全管理指針
+NGT-SAF-03,nightshift_multi_v1,患者安全管理の重要性を理解して行動する,safety,CS-05-06-01,JkxoFDo,医療安全管理指針
+NGT-ESC-01,nightshift_multi_v1,医師へSBARで報告し応援を要請する,escalation,CS-03-06-02,Jkxir5E,SBAR / RRS
+PHM-CNS-01,pharmacist_inquiry_v1,服薬指導で有害事象を示唆する訴えを聴取する,communication,CS-01-01-02;CS-02-04-02,Jkxirsg;Jkxiry4,薬学教育モデル・コア・カリキュラム（対人業務）
+PHM-LAB-01,pharmacist_inquiry_v1,臓器障害と薬物動態の観点で検査値を評価する,assessment,CS-02-04-05,Jkxiryw,薬学実務実習前OSCE
+PHM-ADR-01,pharmacist_inquiry_v1,有害作用と薬物相互作用を同定する,assessment,PS-01-03-33;CS-02-04-06,JkxnuNM;Jkxiry0,薬学実務実習前OSCE
+PHM-INQ-01,pharmacist_inquiry_v1,疑義を確認するまで調剤しない原則を守る,safety,CS-05-05-01,JlBpVX8,薬剤師法第24条（処方箋中の疑義）
+PHM-SBR-01,pharmacist_inquiry_v1,医師へSBARで根拠を提示して疑義照会する,escalation,CS-03-06-02,Jkxir5E,SBAR / 薬剤師法第24条
+PHM-AUT-01,pharmacist_inquiry_v1,権威勾配下でも根拠に基づき主張を維持する,communication,IP-01-02-01;IP-02-01-02,Jkxp2Hg;Jkxp2H4,チームSTEPPS（2チャレンジルール）
+PHM-DOC-01,pharmacist_inquiry_v1,照会内容と結果を記録する,documentation,CS-02-01-01,Jkxiru8,薬剤師法第28条（調剤録）
+GTK-AWR-01,gatekeeper_crisis_v1,気づき：精神的不調と自殺のサインを察知する,observation,PS-02-17-02,JkxnuTw,ゲートキーパー養成研修用テキスト
+GTK-LST-01,gatekeeper_crisis_v1,傾聴：安易な励ましや説得を避け受容的に聴く,communication,CM-01-02-02,JkxhhWA,ゲートキーパー養成研修用テキスト
+GTK-ASK-01,gatekeeper_crisis_v1,希死念慮の有無を直接的に確認する,assessment,PS-02-17-05,JkxnuT8,ゲートキーパー養成研修用テキスト
+GTK-RSK-01,gatekeeper_crisis_v1,計画性・手段へのアクセス・未遂歴を確認する,assessment,PS-02-17-03,JkxnuT0,自殺総合対策大綱
+GTK-CON-01,gatekeeper_crisis_v1,つなぎ：専門相談窓口・精神保健福祉制度へ接続する,coordination,SO-01-03-04,JtPHo-Q,精神保健福祉法 / 自殺総合対策大綱
+GTK-WCH-01,gatekeeper_crisis_v1,見守り：安全の約束と周囲の支援体制を構築する,coordination,SO-01-03,JnH_3oU,ゲートキーパー養成研修用テキスト
+GTK-CRS-01,gatekeeper_crisis_v1,危機対応としてのリスクコミュニケーションを行う,safety,SO-01-05-01,JkxoNtw,健康危機管理

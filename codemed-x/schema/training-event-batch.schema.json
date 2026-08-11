@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hm-cmed/data/codemed-x/schema/training-event-batch.schema.json",
+  "title": "Codemed-x TrainingEventBatch",
+  "description": "API Gateway への POST ボディ。イベントは必ずバッチで送る（HMD の電波断・スリープに耐えるため）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "batch_id", "sent_at_unix_ms", "events"],
+  "properties": {
+    "schema_version": { "type": "string", "const": "1.0" },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+      "description": "バッチ単位の冪等キー。再送時も同じ値を使うため、サーバ側は重複を無視できる。"
+    },
+    "sent_at_unix_ms": { "type": "integer", "minimum": 1600000000000 },
+    "retry_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "何回目の送信試行か。0 = 初回。"
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "training-event.schema.json" }
+    }
+  }
+}

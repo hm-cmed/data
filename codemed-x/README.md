@@ -1,0 +1,109 @@
+# Codemed-x 共通基盤
+
+対人援助職（児童福祉・医療・看護・薬剤・公衆衛生）向け XR シミュレータ 5 テーマを、
+同一の学習履歴フォーマットと同一の再利用部品の上に実装するための共通基盤。
+
+このディレクトリは本リポジトリのデータ（医学教育モデル・コア・カリキュラム 令和4年度改訂版）
+とは独立したソフトウェア成果物だが、**評価項目 `objective_id` をコアカリの `id` に
+機械的に紐づける**ことで、シミュレータの学習履歴をコアカリの資質・能力の粒度で
+集計できるようにしている。これがこのリポジトリに置いている理由。
+
+## 何が入っているか
+
+| パス | 内容 |
+|---|---|
+| `schema/` | `TrainingEvent` / バッチの JSON Schema と、評価項目とコアカリ id の対応表 |
+| `unity/Assets/CodemedX/Runtime/` | 5 シナリオ共通の C#（ログ送信・状態遷移・対話・観察・時間圧・採点） |
+| `unity/Assets/CodemedX/Editor/` | `objectives.csv` から評価項目カタログを再生成するエディタ拡張 |
+| `unity/Assets/CodemedX/Tests/EditMode/` | 共通基盤の EditMode テスト |
+| `docs/` | アーキテクチャ / イベント仕様 / 5 テーマの個別設計 |
+| `prompts/` | Claude Code にそのまま貼れるシナリオ実装プロンプト（① 〜 ⑤） |
+| `server/gas/` | Google スプレッドシートを受け皿にする Apps Script レシーバ |
+| `tools/` | 検証スクリプト・ローカルモック LMS・`.meta` 生成 |
+
+## セットアップ
+
+### 1. Unity プロジェクトを用意する
+
+Unity 6 (6000.0 LTS) で **3D (URP)** テンプレートの新規プロジェクトを作り、
+Package Manager から以下を追加する（バージョンは Unity 6 が解決する最新の互換版でよい）。
+
+- XR Interaction Toolkit（3.x）— Samples の *Starter Assets* も併せて取り込む
+- OpenXR Plugin
+- Input System
+- Test Framework
+
+そのうえで、このリポジトリの `codemed-x/unity/Assets/CodemedX` を
+プロジェクトの `Assets/` 配下にコピー（またはシンボリックリンク）する。
+`.meta` は生成済みなので、GUID は環境をまたいでも保たれる。
+
+> `codemed-x/unity/` には `ProjectSettings/` と `Packages/manifest.json` を意図的に含めていない。
+> パッケージのバージョンを固定して配ると、Unity 側の解決と食い違ったときに
+> プロジェクトが開けなくなるため。
+
+### 2. ログ送信を設定する
+
+1. `Assets 右クリック > Create > Codemed-x > Event Logger Settings` で設定アセットを作り、
+   `Assets/CodemedX/Resources/CodemedXEventLoggerSettings.asset` として保存する
+   （`Resources` 直下・この名前でないと `EventLogger` が自動で読まない）。
+2. `Endpoint Url` に送信先を設定する。未設定でもアプリは動き、イベントは端末内に退避される。
+3. トークンは**アセットに書かない**。起動時のブートストラップから注入する。
+
+```csharp
+// 例: アプリ起動時
+LearnerIdentity.SetFromRawIdentifier(studentNumber, saltFromSecureConfig);
+EventLogger.Instance.SetAuthToken(tokenFromSecureConfig);
+```
+
+### 3. 疎通を確認する
+
+```bash
+# PC 側でモック LMS を起動
+python3 codemed-x/tools/mock_lms_server.py --port 8787
+# → Endpoint Url に http://<PCのIP>:8787/events を設定して Unity を再生
+```
+
+受信したイベントは `codemed-x/samples/received_events.jsonl` に溜まる。
+スキーマ違反は 400 で弾かれるので、フィールドの詰め忘れがその場で分かる。
+
+Google スプレッドシートに貯めたい場合は `server/gas/Code.gs` を参照
+（この場合のみ `Event Logger Settings` の認証方式を `QueryParameter` にする）。
+
+## 検証
+
+```bash
+# 評価項目がコアカリに実在する id を指しているか + サンプルのスキーマ適合
+python3 codemed-x/tools/validate_codemedx.py
+
+# .meta の欠落チェック（CI 向け）
+python3 codemed-x/tools/generate_unity_meta.py --check
+```
+
+C# の EditMode テストは Unity の Test Runner から実行する（`CodemedX.Tests.EditMode`）。
+
+## 5 テーマの実装手順
+
+共通基盤の上に、シナリオごとの状態 enum・遷移表・データアセットを足すだけで完成する形にしてある。
+`prompts/` の各ファイルを Claude Code にそのまま渡す。
+
+1. [① 相談援助面接（児童相談所・生活保護・DV・MSW/PSW・ケアマネ）](docs/scenarios/01-welfare-interview.md) → [prompt](prompts/01-welfare-interview.md)
+2. [② 困難な対話（ACP / SPIKES）](docs/scenarios/02-acp-dialogue.md) → [prompt](prompts/02-acp-dialogue.md)
+3. [③ 夜勤・複数患者の優先順位判断](docs/scenarios/03-nightshift-triage.md) → [prompt](prompts/03-nightshift-triage.md)
+4. [④ 薬剤師：服薬指導から疑義照会](docs/scenarios/04-pharmacist-inquiry.md) → [prompt](prompts/04-pharmacist-inquiry.md)
+5. [⑤ ゲートキーパー：自殺リスク評価と危機介入](docs/scenarios/05-gatekeeper.md) → [prompt](prompts/05-gatekeeper.md)
+
+まず ① から着手することを推奨する。空間観察・対話・法的判断・報告という
+4 局面がそろっており、共通基盤の全機能を一度に検証できるため。
+
+## ドキュメント
+
+- [アーキテクチャ](docs/architecture.md) — 全体構成と設計判断の理由
+- [イベント仕様](docs/event-schema.md) — `TrainingEvent` の各フィールドと送信プロトコル
+- [評価項目とコアカリの対応](docs/objective-mapping.md) — `objective_id` の設計と検証方法
+- [CLAUDE.md](CLAUDE.md) — Claude Code 向けのコーディング規約
+
+## ライセンス上の注意
+
+`schema/objectives.csv` は本リポジトリのコアカリデータの `id` を参照している。
+コアカリ由来のデータを利用する際は
+[文部科学省ウェブサイト利用規約](https://www.mext.go.jp/b_menu/1351168.htm) に従うこと。

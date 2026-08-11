@@ -1,0 +1,10 @@
+# モック LMS が受信したイベント（実行時に生成される作業ファイル）
+samples/received_events.jsonl
+
+# Unity が生成するもの（Assets/CodemedX をプロジェクトへ配置した場合）
+Library/
+Temp/
+Logs/
+obj/
+*.csproj
+*.sln
