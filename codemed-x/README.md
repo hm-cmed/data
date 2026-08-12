@@ -25,17 +25,26 @@
 
 ### 1. Unity プロジェクトを用意する
 
-Unity 6 (6000.0 LTS) で **3D (URP)** テンプレートの新規プロジェクトを作り、
-Package Manager から以下を追加する（バージョンは Unity 6 が解決する最新の互換版でよい）。
+手順の詳細は **[Unity セットアップ手順](docs/unity-setup.md)** にある。要点だけ書くと:
 
-- XR Interaction Toolkit（3.x）— Samples の *Starter Assets* も併せて取り込む
-- OpenXR Plugin
-- Input System
-- Test Framework
+1. Unity 6 (6000.0 LTS) で **Universal 3D**（URP）テンプレートの新規プロジェクトを作る
+2. このリポジトリの `codemed-x/unity/Assets/CodemedX` を、そのプロジェクトの
+   `Assets/` 配下に `.meta` ごとコピーする（GUID は生成済みなので環境をまたいでも保たれる）
+3. **Window > General > Test Runner** の EditMode タブで **Run All** し、全部緑になるのを確認する
 
-そのうえで、このリポジトリの `codemed-x/unity/Assets/CodemedX` を
-プロジェクトの `Assets/` 配下にコピー（またはシンボリックリンク）する。
-`.meta` は生成済みなので、GUID は環境をまたいでも保たれる。
+**XR パッケージはこの時点では不要**。共通基盤は XR Interaction Toolkit にも OpenXR にも
+依存しておらず、Unity 標準機能だけで動く。XR の設定は詰まりやすいので、
+まず PC 上でロジックの動作を確認してから進めるほうが確実。
+
+HMD で動かす段になったら、Package Manager で以下を追加する
+（手順とつまずきやすい点は [docs/unity-setup.md](docs/unity-setup.md) を参照）。
+
+| パッケージ | 名前 |
+|---|---|
+| XR Interaction Toolkit（3.x）— Samples の *Starter Assets* も取り込む | `com.unity.xr.interaction.toolkit` |
+| OpenXR Plugin | `com.unity.xr.openxr` |
+| Input System（XRIT の依存として自動で入る） | `com.unity.inputsystem` |
+| Test Framework（新規プロジェクトに最初から入っている） | `com.unity.test-framework` |
 
 > `codemed-x/unity/` には `ProjectSettings/` と `Packages/manifest.json` を意図的に含めていない。
 > パッケージのバージョンを固定して配ると、Unity 側の解決と食い違ったときに
@@ -97,6 +106,7 @@ C# の EditMode テストは Unity の Test Runner から実行する（`Codemed
 
 ## ドキュメント
 
+- [Unity セットアップ手順](docs/unity-setup.md) — プロジェクト作成からパッケージ追加まで
 - [アーキテクチャ](docs/architecture.md) — 全体構成と設計判断の理由
 - [イベント仕様](docs/event-schema.md) — `TrainingEvent` の各フィールドと送信プロトコル
 - [評価項目とコアカリの対応](docs/objective-mapping.md) — `objective_id` の設計と検証方法
