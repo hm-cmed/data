@@ -33,7 +33,12 @@ namespace CodemedX.Assessment
             _catalog = catalog;
         }
 
-        public IReadOnlyList<string> ErrorTypes { get { return _errorTypes; } }
+        /// <summary>
+        /// 記録されたエラー種別を発生順に並べたもの。
+        /// 名前を ErrorTypes にしてはならない（同名の定数カタログ <see cref="CodemedX.Core.ErrorTypes"/> を
+        /// このクラス内で隠してしまい、ErrorTypes.None が解決できなくなる）。
+        /// </summary>
+        public IReadOnlyList<string> RecordedErrors { get { return _errorTypes; } }
 
         public int ErrorCount { get { return _errorTypes.Count; } }
 
