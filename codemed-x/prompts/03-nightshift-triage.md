@@ -4,105 +4,98 @@
 
 ---
 
-あなたは Unity 6 (OpenXR / XR Interaction Toolkit 3.x) に習熟したシニアゲームエンジニアです。
-Codemed-x プロジェクトの共通基盤の上に、夜勤看護シミュレータの
-`NurseWorkloadScheduler` と評価システムを実装してください。
+あなたは Unity 6 に習熟したシニアゲームエンジニアです。
+夜勤看護の「複数患者・優先順位判断」を訓練するシミュレーションを、
+**単体で完結する 1 フォルダ**として実装してください。
 
 ## 事前に読むもの
 
-- `codemed-x/CLAUDE.md`
-- `codemed-x/docs/architecture.md`
-- `codemed-x/docs/scenarios/03-nightshift-triage.md`
+- `codemed-x/standalone/README.md`（作り方の約束事）
+- `codemed-x/standalone/01-welfare-interview/` の 3 ファイル（**必ず読む**）
+- `codemed-x/docs/scenarios/03-nightshift-triage.md`（設計の詳細）
 - `codemed-x/schema/objectives.csv` の `nightshift_multi_v1` の行
 
-## 共通基盤は実装済みです。再実装せず利用してください
+## 作るもの
 
-- `CodemedX.Timing.ScenarioClock` — 指定秒数での自律イベント発火（`UnityEvent`）
-- `CodemedX.Timing.PriorityTask` / `PriorityTaskBoard` — **優先順位逆転と放置の判定は実装済み**
-- `CodemedX.Scenarios.ScenarioController<TState>` — 制限時間とタイムアウト処理を内包
-- `CodemedX.Logging.EventLogger`、`CodemedX.Core.EventTypes` / `ErrorTypes` / `PayloadBuilder`
+`codemed-x/standalone/03-nightshift-triage/` に 3 ファイル。
 
-`PriorityTaskBoard` が既に以下を自動で行います。**自前で書かないでください。**
+| ファイル | 役割 |
+|---|---|
+| `NightShiftSim.cs` | 時間進行・タスク管理・画面（`OnGUI`） |
+| `NightShiftScenarioData.cs` | 時間台本・タスク定義・文言・配点 |
+| `NightShiftTrainingLog.cs` | 学習履歴の記録 |
 
-- `AttendTo(task)` を呼ぶと、より緊急なタスクを差し置いていた場合に
-  `ErrorTypes.PriorityInversion` を記録する
-- 許容時間を超えて未対応のタスクを `ErrorTypes.CriticalTaskNeglected` として
-  記録し、`TaskEscalated` イベントを発火する
-- `Resolve(task)` で解決を記録し、着手までの秒数を残す
+`scenario_id` は `nightshift_multi_v1`、名前空間は `CodemedX.NightShift`。
 
-## 実装するもの
+### 守ること（①と揃える）
 
-### 1. `NurseWorkloadScheduler.cs`
+- **空の GameObject にスクリプトを 1 つ付けて Play するだけで動くこと。**
+  Canvas、Prefab、XR パッケージ、`.asmdef` は使わない。画面は IMGUI。
+  **XRIT や Trigger Collider は使わない。** タスクへの着手はボタンで表現する。
+  VR 化は内容が固まってからで間に合う。
+- **`TrainingEvent` のフィールドは①と 1 文字も変えない。**
+  `TrainingEvent` / `Payload` / ログクラスは①からコピーして名前空間だけ変える。
+- `objective_id` は `NGT-*` のみ使う。
+- 時間台本と配点は `NightShiftScenarioData` に持たせ、コードに直接書かない。
+  演習ごとに秒数を変えて難易度を調整するため。
 
-`ScenarioController<NightShiftState>` を継承する。
+## 内容
 
-```csharp
-public enum NightShiftState { Briefing, Rounds, Escalation, Debrief, Aborted }
-```
+このシナリオだけは**実時間で進む**。`Update()` で経過秒を見る。
 
-- 制限時間 180 秒は `ScenarioDefinition.timeLimitSeconds` に設定する
-  （タイムアウト処理は基底が行う。`Update` で自前に測らないこと）。
-- `Escalation` はどの状態からでも入れるようにする（`AllowFromAny`）。
+### 時間台本（180 秒）
 
-### 2. 時間台本
-
-`ScenarioClock` のトリガーとして **Inspector のデータで**定義する。
-C# にハードコードしないこと（演習ごとに秒数を変えて難易度調整するため）。
-
-| 時刻 | イベント | `PriorityTask.priority` | 放置許容 |
+| 時刻 | 出来事 | 緊急度 | 放置の許容 |
 |---|---|---|---|
-| 10 秒 | 患者A の SpO2 が急激に低下（生体モニタ点滅） | 10 | 15 秒 |
+| 10 秒 | 患者A の SpO2 が急激に低下（モニタのアラーム） | 10 | 15 秒 |
 | 30 秒 | 患者B（認知症）がベッドサイドで立ち上がる（抜管・転倒リスク） | 8 | 12 秒 |
-| 60 秒 | ナースステーションの電話が鳴る（事務連絡） | 2 | — |
+| 60 秒 | ナースステーションの電話（事務連絡） | 2 | — |
 | 90 秒 | 複数病室からナースコールが同時点灯 | 5 | 30 秒 |
 
-各トリガーの `UnityEvent` から、対応する `PriorityTask.Activate()` と
-演出（モニタ点滅・アラーム音・ナースコールランプ）を呼ぶ。
+発生したタスクは画面に一覧で出し、それぞれ「対応する」ボタンを置く。
+対応中は他のタスクの経過時間が進み続けることが分かるように表示する
+（残り時間や経過秒を各タスクの横に出す）。
 
-### 3. 「着手した」の検知
+### 判定するのは 2 つだけ
 
-`PriorityTaskBoard.AttendTo(task)` を呼ぶトリガーをシナリオ側で実装する。
+**1. 優先順位の逆転** — より緊急なタスクが発生中なのに、緊急度が 1 以上低いタスクに着手した。
+`TriageAction` を `PriorityInversion` として記録する。
+payload に `chosen` / `chosen_priority` / `deferred` / `deferred_priority` /
+`deferred_unattended_sec` を含める。
 
-- ベッドサイドの Trigger Collider への XR Origin の侵入
-- 対象オブジェクトの Grab（XRIT 3.x の Interactable の `selectEntered`）
-- 器材 UI の操作
+**2. 放置による重大化** — 許容時間を超えて未対応。
+`TriageAction` を `CriticalTaskNeglected` として記録し、結果を画面に出す。
 
-XRIT 3.x の名前空間は `UnityEngine.XR.Interaction.Toolkit.Interactables` /
-`.Interactors` です（2.x から変わっています）。
+- 患者A を 15 秒以上放置 → 状態悪化
+- 患者B を 12 秒以上放置 → 自己抜管が発生
 
-### 4. エスカレーション
+重大化は一度だけ発火させる（毎フレーム記録しない）。
 
-- 医師への SBAR 電話・RRS 要請を実装し、`EventTypes.EscalationPerformed` を
-  `objective_id = "NGT-ESC-01"` で送る。
-- payload に **急変発生からエスカレーションまでの秒数**（`time_to_decision_sec`）を必ず含める。
-  これがこのシナリオでもっとも重要な指標。
-- SBAR の各要素（Situation / Background / Assessment / Recommendation）を
-  選択で構成させ、充足状況を payload に残す。
+### エスカレーション
 
-### 5. 重大アクシデント
+いつでも「医師に電話する」を選べるようにする。SBAR の 4 要素
+（Situation / Background / Assessment / Recommendation）を選択で構成させ、
+`EscalationPerformed` を `objective_id = "NGT-ESC-01"` で記録する。
 
-`PriorityTaskBoard.TaskEscalated` を購読し、以下を実装する。
+payload に **急変発生からエスカレーションまでの秒数**（`time_to_decision_sec`）を必ず含める。
+**これがこのシナリオでもっとも重要な指標。**
+新人看護師の教育で問題になるのは知識ではなく「呼ぶのが遅れる」ことなので、
+単独の数値として取り出せるようにする。
 
-- 患者A の SpO2 低下を 15 秒以上放置 → 状態悪化の演出
-- 患者B を 12 秒以上放置 → 自己抜管の発生
-- いずれかが未回復のまま制限時間終了 → `FinishScenario(false)`
+### 終了
 
-## 守ること
+180 秒経過、または全タスク解決で振り返りへ。
+重大化したタスクが残ったまま終了した場合は失敗として記録する。
 
-- 非同期処理は**コルーチン**で書く。XRIT 3.x のイベントと組み合わせる場合、
-  `async/await` はシーン遷移時のキャンセル漏れを起こしやすい。
-- `[SerializeField] private` を使う。
-- `EventTypes` / `ErrorTypes` の定数を使う。`objective_id` は `NGT-*` のみ。
-- `UnityWebRequest` を直接呼ばない。ログは基底の `LogEvent(...)` 経由。
-- Unity 6 で非推奨の API を使わない（`rigidbody.velocity` → `linearVelocity`）。
-- 移動方式は `continuous`。`ScenarioDefinition` の `defaultLocomotionMode` に設定する。
-- アセット追加後に `python3 codemed-x/tools/generate_unity_meta.py` を実行する。
+### 振り返りで見せるもの
+
+- 各タスクの発生時刻・着手時刻・解決時刻（時系列で並べる）
+- 優先順位逆転の回数と、そのときに後回しにしたもの
+- 急変からエスカレーションまでの秒数
+- 重大化したタスクとその結果
 
 ## 成果物
 
-1. `NurseWorkloadScheduler.cs`（完全にコンパイル可能なもの）
-2. 着手検知コンポーネント（Trigger 侵入 / Grab）
-3. 生体モニタとナースコールの表示コンポーネント
-4. EditMode テスト — 優先順位逆転の記録、放置による重大化、
-   タイムアウト時の `ScenarioFailed` をカバーする
-5. シーン構成手順を `docs/scenarios/03-nightshift-triage.md` の末尾に追記
+1. 上記 3 ファイル（そのままコンパイルが通るもの）
+2. `codemed-x/standalone/README.md` の③の行を、①と同じ書式で埋める
+3. 題材が監修前の仮版であることを、振り返り画面と README に明記する

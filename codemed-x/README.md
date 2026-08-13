@@ -8,10 +8,30 @@
 機械的に紐づける**ことで、シミュレータの学習履歴をコアカリの資質・能力の粒度で
 集計できるようにしている。これがこのリポジトリに置いている理由。
 
+## まずここから
+
+**[`standalone/01-welfare-interview/`](standalone/01-welfare-interview/) が実装済みで、そのまま動く。**
+空の GameObject にスクリプトを 1 つ付けて Play するだけ。Canvas も XR パッケージも要らない。
+
+このプロジェクトには作り方が 2 つある。
+
+| | 単体版 `standalone/` | 共通基盤版 `unity/Assets/CodemedX/` |
+|---|---|---|
+| 依存 | なし。1 シナリオ = 1 フォルダ | 全シナリオが共通のアセンブリを共有 |
+| 導入 | フォルダを 1 つ置くだけ | 基盤を先に入れる必要がある |
+| 壊れ方 | そのシナリオだけ | 基盤が壊れると全部止まる |
+| 向き | **まず 1 つ動かす。個別に配る** | 5 本を同時に育てる |
+
+共通しているのは**学習履歴の形だけ**。どちらで作っても `TrainingEvent` の
+フィールドは同じなので、LMS 側は 1 種類の受け口で 5 テーマすべてを受けられる。
+
+迷ったら単体版から始める。詳細は [`standalone/README.md`](standalone/README.md)。
+
 ## 何が入っているか
 
 | パス | 内容 |
 |---|---|
+| `standalone/` | シナリオ 1 つで完結する実装（①は完成済み） |
 | `schema/` | `TrainingEvent` / バッチの JSON Schema と、評価項目とコアカリ id の対応表 |
 | `unity/Assets/CodemedX/Runtime/` | 5 シナリオ共通の C#（ログ送信・状態遷移・対話・観察・時間圧・採点） |
 | `unity/Assets/CodemedX/Editor/` | `objectives.csv` から評価項目カタログを再生成するエディタ拡張 |
@@ -98,19 +118,21 @@ python3 codemed-x/tools/generate_unity_meta.py --check
 
 C# の EditMode テストは Unity の Test Runner から実行する（`CodemedX.Tests.EditMode`）。
 
-## 5 テーマの実装手順
+## 5 テーマの進み方
 
-共通基盤の上に、シナリオごとの状態 enum・遷移表・データアセットを足すだけで完成する形にしてある。
-`prompts/` の各ファイルを Claude Code にそのまま渡す。
+| | 状態 | 設計 | プロンプト |
+|---|---|---|---|
+| ① 相談援助面接（児童相談所・生活保護・DV・MSW/PSW・ケアマネ） | **実装済み** | [設計](docs/scenarios/01-welfare-interview.md) | [①](prompts/01-welfare-interview.md) |
+| ② 困難な対話（ACP / SPIKES） | 未着手 | [設計](docs/scenarios/02-acp-dialogue.md) | [②](prompts/02-acp-dialogue.md) |
+| ③ 夜勤・複数患者の優先順位判断 | 未着手 | [設計](docs/scenarios/03-nightshift-triage.md) | [③](prompts/03-nightshift-triage.md) |
+| ④ 薬剤師：服薬指導から疑義照会 | 未着手 | [設計](docs/scenarios/04-pharmacist-inquiry.md) | [④](prompts/04-pharmacist-inquiry.md) |
+| ⑤ ゲートキーパー：自殺リスク評価と危機介入 | 未着手 | [設計](docs/scenarios/05-gatekeeper.md) | [⑤](prompts/05-gatekeeper.md) |
 
-1. [① 相談援助面接（児童相談所・生活保護・DV・MSW/PSW・ケアマネ）](docs/scenarios/01-welfare-interview.md) → [prompt](prompts/01-welfare-interview.md)
-2. [② 困難な対話（ACP / SPIKES）](docs/scenarios/02-acp-dialogue.md) → [prompt](prompts/02-acp-dialogue.md)
-3. [③ 夜勤・複数患者の優先順位判断](docs/scenarios/03-nightshift-triage.md) → [prompt](prompts/03-nightshift-triage.md)
-4. [④ 薬剤師：服薬指導から疑義照会](docs/scenarios/04-pharmacist-inquiry.md) → [prompt](prompts/04-pharmacist-inquiry.md)
-5. [⑤ ゲートキーパー：自殺リスク評価と危機介入](docs/scenarios/05-gatekeeper.md) → [prompt](prompts/05-gatekeeper.md)
+②〜⑤ のプロンプトは、①と同じ 3 ファイル構成で単体版を作るように書いてある。
+Claude Code にそのまま渡せる。
 
-まず ① から着手することを推奨する。空間観察・対話・法的判断・報告という
-4 局面がそろっており、共通基盤の全機能を一度に検証できるため。
+①を実際に触って、進行の粒度や記録する項目を調整してから次に進むのが確実。
+**1 本目で決めた形が、残り 4 本のひな形になる。**
 
 ## ドキュメント
 
