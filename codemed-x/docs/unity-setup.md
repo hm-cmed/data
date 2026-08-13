@@ -127,10 +127,33 @@ Package Manager の **＋ > Install package by name** で名前だけ入れる�
 
 ---
 
+---
+
+## 5. ログ送信設定アセットについて
+
+`Assets/CodemedX/Resources/CodemedXEventLoggerSettings.asset` として**同梱済み**なので、
+手順 2 でフォルダごとコピーしていれば作成作業は不要です。Project ウィンドウで選び、
+Inspector で `Endpoint Url` を設定してください。
+
+見当たらない場合は **Tools > Codemed-x > ログ送信設定アセットを作成 or 選択** で作成できます。
+`Assets 右クリック > Create > Codemed-x > Event Logger Settings` でも同じものが作れますが、
+Create メニューは項目が非常に多く目的のものを探しにくいため、Tools 側に入口を用意しています。
+
+**Tools メニューに「Codemed-x」が出てこない場合、スクリプトがコンパイルできていません。**
+メニュー項目は C# のコンパイルが通って初めて登録されるためです。
+まず Console（**Window > General > Console**）を開いて赤いエラーを確認してください。
+
+現在の状態は **Tools > Codemed-x > セットアップ状態を確認** で Console に出力できます
+（設定アセットの有無、送信先、端末内スプールの保存先）。
+
+---
+
 ## つまずきやすい点
 
 | 症状 | 原因と対処 |
 |---|---|
+| `Create > Codemed-x` や `Tools > Codemed-x` がメニューに出ない | スクリプトがコンパイルできていない。Console の赤いエラーを先に潰す。エラーが無いのに出ない場合は、コピーしたフォルダに `Runtime` / `Editor` / `Tests` と各 `.asmdef` が揃っているかを確認する |
+| `Unexpected transport error from import worker`（`code=10054` 等） | アセットインポート用の別プロセスが落ちた。Unity を再起動する。頻発する場合は ① プロジェクトを OneDrive / Dropbox / ネットワークドライブの外（例 `C:\Unity\...`）へ移す ② ウイルス対策ソフトの除外にプロジェクトフォルダと Unity を追加 ③ `Library` フォルダを削除して開き直す（キャッシュなので消して安全。`Assets` と `ProjectSettings` は消さない） |
 | Unity Registry に XR Interaction Toolkit が出ない | 検索欄で `XR Interaction` と入れる。それでも出なければ 4-2 の「名前で入れる」を使う |
 | XRIT を入れたらコンソールに Input System 関連のエラーが出る | バックエンド切り替えの再起動がまだ。Unity を再起動する |
 | Starter Assets の Import ボタンがない | **Unity Registry** ではなく **In Project** 側で選び直す。Samples タブはインストール済みパッケージにのみ出る |

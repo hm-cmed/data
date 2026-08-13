@@ -52,11 +52,19 @@ HMD で動かす段になったら、Package Manager で以下を追加する
 
 ### 2. ログ送信を設定する
 
-1. `Assets 右クリック > Create > Codemed-x > Event Logger Settings` で設定アセットを作り、
-   `Assets/CodemedX/Resources/CodemedXEventLoggerSettings.asset` として保存する
-   （`Resources` 直下・この名前でないと `EventLogger` が自動で読まない）。
-2. `Endpoint Url` に送信先を設定する。未設定でもアプリは動き、イベントは端末内に退避される。
-3. トークンは**アセットに書かない**。起動時のブートストラップから注入する。
+設定アセットは **`Assets/CodemedX/Resources/CodemedXEventLoggerSettings.asset` として同梱済み**。
+手順 1 でフォルダごとコピーしていれば、作成作業は不要。
+
+1. Project ウィンドウでそのアセットを選び、Inspector で `Endpoint Url` に送信先を設定する。
+   未設定でもアプリは動き、イベントは端末内に退避される（初期状態では Console 出力が有効）。
+2. トークンは**アセットに書かない**。起動時のブートストラップから注入する。
+
+アセットが見当たらない場合は **Tools > Codemed-x > ログ送信設定アセットを作成 or 選択** で作れる
+（`Assets 右クリック > Create > Codemed-x > Event Logger Settings` でも同じものが作れるが、
+Create メニューは項目が多く探しにくいため Tools 側を用意している）。
+現在の状態は **Tools > Codemed-x > セットアップ状態を確認** で Console に出力できる。
+
+> `Resources` 直下・この名前でないと `EventLogger` が自動で読み込めない。移動・改名しないこと。
 
 ```csharp
 // 例: アプリ起動時

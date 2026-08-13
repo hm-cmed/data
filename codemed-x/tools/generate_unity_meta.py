@@ -52,6 +52,16 @@ AssemblyDefinitionImporter:
   assetBundlePath:
 """
 
+ASSET_TEMPLATE = """fileFormatVersion: 2
+guid: {guid}
+NativeFormatImporter:
+  externalObjects: {{}}
+  mainObjectFileID: 11400000
+  userData:
+  assetBundleName:
+  assetBundlePath:
+"""
+
 DEFAULT_TEMPLATE = """fileFormatVersion: 2
 guid: {guid}
 DefaultImporter:
@@ -75,6 +85,9 @@ def template_for(path: Path) -> str:
         return SCRIPT_TEMPLATE
     if path.suffix == ".asmdef":
         return ASMDEF_TEMPLATE
+    if path.suffix == ".asset":
+        # ScriptableObject アセットは NativeFormatImporter で読む。
+        return ASSET_TEMPLATE
     return DEFAULT_TEMPLATE
 
 
