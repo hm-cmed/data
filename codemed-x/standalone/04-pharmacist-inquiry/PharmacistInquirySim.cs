@@ -69,8 +69,38 @@ namespace CodemedX.Pharmacist
         private string _savedLogPath = string.Empty;
         private Vector2 _scroll;
 
+        // 1 シーンで複数のシナリオを同時に動かすと、それぞれが全画面 UI を描いて重なり、
+        // どれも操作できなくなる。先に起動した 1 本だけを動かし、残りは待機させる。
+        // 目印は自分の GameObject の子として作る。GameObject.Find は有効なオブジェクトしか
+        // 見つけないため、Inspector でチェックを外せば次回 Play で別のシナリオが動く。
+        private const string ActiveSimToken = "[CodemedX] ActiveSim";
+
+        private GameObject _tokenObject;
+
+        private void OnDestroy()
+        {
+            if (_tokenObject != null)
+            {
+                Destroy(_tokenObject);
+            }
+        }
+
         private void Awake()
         {
+            if (GameObject.Find(ActiveSimToken) != null)
+            {
+                Debug.LogWarning(
+                    "[Codemed-x] 別のシナリオが実行中のため " + GetType().Name + " は待機します。\n" +
+                    "1 シーンで動かせるシナリオは 1 つだけです。切り替えるには、動かしたい" +
+                    "GameObject 以外を Inspector のチェックボックスで無効にして Play し直してください。",
+                    this);
+                enabled = false;
+                return;
+            }
+
+            _tokenObject = new GameObject(ActiveSimToken);
+            _tokenObject.transform.SetParent(transform, false);
+
             if (scenario == null || scenario.IsEmpty)
             {
                 scenario = PharmacistScenarioData.CreateDefault();
