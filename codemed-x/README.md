@@ -149,6 +149,7 @@ Claude Code へ渡せる指示を置いてある。
 
 - [Unity セットアップ手順](docs/unity-setup.md) — プロジェクト作成からパッケージ追加まで
 - [背景と登場人物の作り方](docs/visuals.md) — 2D / 360度実写 / 3D の選び方と進め方
+- [360度背景の生成プロンプト集](docs/visuals-prompts.md) — ①②④⑤ の背景を画像生成AIで作る
 - [アーキテクチャ](docs/architecture.md) — 全体構成と設計判断の理由
 - [イベント仕様](docs/event-schema.md) — `TrainingEvent` の各フィールドと送信プロトコル
 - [評価項目とコアカリの対応](docs/objective-mapping.md) — `objective_id` の設計と検証方法
