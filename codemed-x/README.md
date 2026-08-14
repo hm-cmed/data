@@ -10,8 +10,9 @@
 
 ## まずここから
 
-**[`standalone/01-welfare-interview/`](standalone/01-welfare-interview/) が実装済みで、そのまま動く。**
-空の GameObject にスクリプトを 1 つ付けて Play するだけ。Canvas も XR パッケージも要らない。
+**[`standalone/`](standalone/) に 5 テーマすべての実装がある。そのまま動く。**
+フォルダを `Assets/` に置き、空の GameObject にスクリプトを 1 つ付けて Play するだけ。
+Canvas も Prefab も XR パッケージも要らない。
 
 このプロジェクトには作り方が 2 つある。
 
@@ -20,7 +21,7 @@
 | 依存 | なし。1 シナリオ = 1 フォルダ | 全シナリオが共通のアセンブリを共有 |
 | 導入 | フォルダを 1 つ置くだけ | 基盤を先に入れる必要がある |
 | 壊れ方 | そのシナリオだけ | 基盤が壊れると全部止まる |
-| 向き | **まず 1 つ動かす。個別に配る** | 5 本を同時に育てる |
+| 向き | **まず動かす。個別に配る**（現在こちらで実装済み） | 5 本を同時に育てる段階になったら |
 
 共通しているのは**学習履歴の形だけ**。どちらで作っても `TrainingEvent` の
 フィールドは同じなので、LMS 側は 1 種類の受け口で 5 テーマすべてを受けられる。
@@ -31,13 +32,13 @@
 
 | パス | 内容 |
 |---|---|
-| `standalone/` | シナリオ 1 つで完結する実装（①は完成済み） |
+| `standalone/` | **5 テーマの実装**。1 シナリオ = 1 フォルダで完結 |
 | `schema/` | `TrainingEvent` / バッチの JSON Schema と、評価項目とコアカリ id の対応表 |
 | `unity/Assets/CodemedX/Runtime/` | 5 シナリオ共通の C#（ログ送信・状態遷移・対話・観察・時間圧・採点） |
 | `unity/Assets/CodemedX/Editor/` | `objectives.csv` から評価項目カタログを再生成するエディタ拡張 |
 | `unity/Assets/CodemedX/Tests/EditMode/` | 共通基盤の EditMode テスト |
 | `docs/` | アーキテクチャ / イベント仕様 / 5 テーマの個別設計 |
-| `prompts/` | Claude Code にそのまま貼れるシナリオ実装プロンプト（① 〜 ⑤） |
+| `prompts/` | 内容の差し替え・作り直しを Claude Code に頼むときの指示（① 〜 ⑤） |
 | `server/gas/` | Google スプレッドシートを受け皿にする Apps Script レシーバ |
 | `tools/` | 検証スクリプト・ローカルモック LMS・`.meta` 生成 |
 
@@ -120,19 +121,24 @@ C# の EditMode テストは Unity の Test Runner から実行する（`Codemed
 
 ## 5 テーマの進み方
 
-| | 状態 | 設計 | プロンプト |
+| | 状態 | 動かすスクリプト | 設計 |
 |---|---|---|---|
-| ① 相談援助面接（児童相談所・生活保護・DV・MSW/PSW・ケアマネ） | **実装済み** | [設計](docs/scenarios/01-welfare-interview.md) | [①](prompts/01-welfare-interview.md) |
-| ② 困難な対話（ACP / SPIKES） | 未着手 | [設計](docs/scenarios/02-acp-dialogue.md) | [②](prompts/02-acp-dialogue.md) |
-| ③ 夜勤・複数患者の優先順位判断 | 未着手 | [設計](docs/scenarios/03-nightshift-triage.md) | [③](prompts/03-nightshift-triage.md) |
-| ④ 薬剤師：服薬指導から疑義照会 | 未着手 | [設計](docs/scenarios/04-pharmacist-inquiry.md) | [④](prompts/04-pharmacist-inquiry.md) |
-| ⑤ ゲートキーパー：自殺リスク評価と危機介入 | 未着手 | [設計](docs/scenarios/05-gatekeeper.md) | [⑤](prompts/05-gatekeeper.md) |
+| ① 相談援助面接（児童相談所・生活保護・DV・MSW/PSW・ケアマネ） | **実装済み** | `WelfareInterviewSim` | [設計](docs/scenarios/01-welfare-interview.md) |
+| ② 困難な対話（ACP / SPIKES） | **実装済み** | `AcpDialogueSim` | [設計](docs/scenarios/02-acp-dialogue.md) |
+| ③ 夜勤・複数患者の優先順位判断 | **実装済み** | `NightShiftSim` | [設計](docs/scenarios/03-nightshift-triage.md) |
+| ④ 薬剤師：服薬指導から疑義照会 | **実装済み** | `PharmacistInquirySim` | [設計](docs/scenarios/04-pharmacist-inquiry.md) |
+| ⑤ ゲートキーパー：自殺リスク評価と危機介入 | **実装済み** | `GatekeeperSim` | [設計](docs/scenarios/05-gatekeeper.md) |
 
-②〜⑤ のプロンプトは、①と同じ 3 ファイル構成で単体版を作るように書いてある。
-Claude Code にそのまま渡せる。
+実体は [`standalone/`](standalone/) 以下。各フォルダを `Assets/` に置き、
+空の GameObject に上記スクリプトを付けて Play するだけで動く。
 
-①を実際に触って、進行の粒度や記録する項目を調整してから次に進むのが確実。
-**1 本目で決めた形が、残り 4 本のひな形になる。**
+題材はいずれも**監修前の仮版**。構造を体験するためのたたき台であり、
+研修に使う前にそれぞれの領域の実務者によるレビューが要る。
+文言は各シナリオの `*ScenarioData.cs` の `CreateDefault()` 1 箇所にまとまっているので、
+C# を書かずに差し替えられる。
+
+[`prompts/`](prompts/) には、内容を差し替えたり作り直したりするときに
+Claude Code へ渡せる指示を置いてある。
 
 ## ドキュメント
 
