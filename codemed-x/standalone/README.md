@@ -111,6 +111,30 @@ SPIKES の 6 ステップを進みながら、双方との関係を保って方�
 - **急変から医師への報告までの秒数**が最重要指標。振り返りで単独の数値として出る
 - 最後まで報告しなかった場合も明示的に減点する
 
+**③ だけは 3D の病棟を歩き回る版がある**（[docs/visuals.md](../docs/visuals.md) の判断どおり、
+移動と複数患者の同時把握が学習内容そのものだから）。
+
+| ファイル | 役割 |
+|---|---|
+| `SimpleWalker.cs` | WASD + マウスの一人称移動（XR パッケージ不要） |
+| `BedStation.cs` | ベッド・電話・ナースコール共通の「近づいて [E] で対応する」部品 |
+| `NurseStationPhone.cs` | 医師への疑義照会（エスカレーション）用の電話 |
+| `Editor/NightShiftHospitalBuilder.cs` | グレーボックス病棟をメニュー 1 つで生成 |
+
+使い方:
+
+1. 空のシーンで **Tools > Codemed-x > 夜勤: グレーボックス病棟を生成**
+2. Play。WASD + マウスで歩き、ベッドや電話に近づいて **[E]** で対応する
+
+生成されるのは灰色の板だけの仮モデル。判定・スコア・ログは
+IMGUI 版とまったく同じ `NightShiftSim` の API（`TryAttendTo` / `TryOpenEscalationMenu`）を
+経由するため、**3D にしたことで採点基準が変わることはない**。
+本物のモデルに差し替えるときも `BedStation` / `NurseStationPhone` はそのまま使え、
+見た目（Cube のメッシュとマテリアル）だけを入れ替えればよい。
+
+IMGUI のタスク一覧・ボタンは残したままなので、3D を使わずキーボードだけで
+最後まで進めることもできる。
+
 ### ④ 薬剤師：服薬指導から疑義照会 — `04-pharmacist-inquiry/`
 
 付けるスクリプト: `PharmacistInquirySim`

@@ -38,6 +38,36 @@ namespace CodemedX.NightShift
             }
         }
 
+        /// <summary>
+        /// 3D 空間側（ベッドのオブジェクト等）へタスクの状態を渡すための読み取り専用スナップショット。
+        /// <see cref="TaskState"/> をそのまま公開すると外部から書き換えられてしまうため分けている。
+        /// </summary>
+        public readonly struct TaskSnapshot
+        {
+            public readonly string Id;
+            public readonly string Label;
+            public readonly int Priority;
+            public readonly bool IsActive;
+            public readonly bool IsBeingAttended;
+            public readonly bool HasEscalated;
+            public readonly float UnattendedSeconds;
+            public readonly float NeglectSeconds;
+
+            public TaskSnapshot(
+                string id, string label, int priority, bool isActive, bool isBeingAttended,
+                bool hasEscalated, float unattendedSeconds, float neglectSeconds)
+            {
+                Id = id;
+                Label = label;
+                Priority = priority;
+                IsActive = isActive;
+                IsBeingAttended = isBeingAttended;
+                HasEscalated = hasEscalated;
+                UnattendedSeconds = unattendedSeconds;
+                NeglectSeconds = neglectSeconds;
+            }
+        }
+
         private const string ScenarioId = "nightshift_multi_v1";
 
         [Header("シナリオの内容")]
@@ -329,7 +359,7 @@ namespace CodemedX.NightShift
 
                 if (_current == null && GUILayout.Button("　対応する: " + task.Definition.Label))
                 {
-                    AttendTo(task, now);
+                    TryAttendTo(task.Definition.Id);
                 }
 
                 GUILayout.Space(4f);
@@ -380,6 +410,98 @@ namespace CodemedX.NightShift
             {
                 Finish();
             }
+        }
+
+        // ------------------------------------------------------------------ 3D 空間からの操作用 API
+        //
+        // 病棟を歩き回って操作する版（BedStation / NurseStationPhone）は、
+        // IMGUI のボタンを押す代わりにここを呼ぶ。UI 版と全く同じ判定・同じログを通るので、
+        // 「3D にすると採点基準が変わる」ということが起きない。
+
+        /// <summary>夜勤が進行中で、操作を受け付けられる状態か。</summary>
+        public bool IsShiftActive { get { return _phase == Phase.Shift; } }
+
+        /// <summary>現在対応中のタスクの Id。対応中が無ければ空文字。</summary>
+        public string CurrentTaskId
+        {
+            get { return _current != null ? _current.Definition.Id : string.Empty; }
+        }
+
+        /// <summary>発生中の全タスクのスナップショットを返す。ベッド側が毎フレーム参照してよい。</summary>
+        public List<TaskSnapshot> GetActiveTaskSnapshots()
+        {
+            float now = ElapsedSeconds;
+            List<TaskSnapshot> snapshots = new List<TaskSnapshot>();
+
+            for (int i = 0; i < _tasks.Count; i++)
+            {
+                TaskState task = _tasks[i];
+                if (!task.IsActive)
+                {
+                    continue;
+                }
+
+                snapshots.Add(new TaskSnapshot(
+                    task.Definition.Id,
+                    task.Definition.Label,
+                    task.Definition.Priority,
+                    task.IsActive,
+                    task == _current,
+                    task.HasEscalated,
+                    task.UnattendedSeconds(now),
+                    task.Definition.NeglectSeconds));
+            }
+
+            return snapshots;
+        }
+
+        /// <summary>
+        /// 指定した taskId のタスクへ着手を試みる。ベッドのオブジェクトから呼ぶ想定。
+        /// 見つからない・進行中でない・既に何かに対応中の場合は何もせず false を返す。
+        /// </summary>
+        public bool TryAttendTo(string taskId)
+        {
+            if (!IsShiftActive || _current != null || string.IsNullOrEmpty(taskId))
+            {
+                return false;
+            }
+
+            TaskState task = FindTask(taskId);
+            if (task == null || !task.IsActive)
+            {
+                return false;
+            }
+
+            AttendTo(task, ElapsedSeconds);
+            return true;
+        }
+
+        /// <summary>
+        /// ナースステーションの電話オブジェクトから呼ぶ。SBAR 選択画面を開く。
+        /// 実際の選択・送信は既存の IMGUI パネルで行う（3D 側は入口を作るだけでよい）。
+        /// </summary>
+        public bool TryOpenEscalationMenu()
+        {
+            if (!IsShiftActive || _escalated)
+            {
+                return false;
+            }
+
+            _showSbar = true;
+            return true;
+        }
+
+        private TaskState FindTask(string taskId)
+        {
+            for (int i = 0; i < _tasks.Count; i++)
+            {
+                if (_tasks[i].Definition.Id == taskId)
+                {
+                    return _tasks[i];
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

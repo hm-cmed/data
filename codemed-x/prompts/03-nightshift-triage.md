@@ -1,6 +1,12 @@
 # ③ 夜勤・複数患者の優先順位判断 — Claude Code 入力用プロンプト
 
-以下をそのまま Claude Code に貼る。
+**このシナリオは実装が終わっています。** IMGUI 版（`NightShiftSim.cs` /
+`NightShiftScenarioData.cs` / `NightShiftTrainingLog.cs`）に加えて、
+グレーボックスの病棟を歩き回る 3D 版（`SimpleWalker.cs` / `BedStation.cs` /
+`NurseStationPhone.cs` / `Editor/NightShiftHospitalBuilder.cs`）も実装済み。
+使い方は [`codemed-x/standalone/README.md`](../standalone/README.md) の③の項を参照。
+
+以下は、内容を作り直したいときに Claude Code へそのまま貼るプロンプト。
 
 ---
 

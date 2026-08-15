@@ -88,12 +88,41 @@ HMD で見回すと、その場に居る感覚が一気に出る。
 ### 段階 3: 3D 空間（③ のみ）
 
 夜勤シナリオは、病室の間を移動し、複数の患者を同時に把握することが学習内容なので、
-3D 空間が要る。ここで初めて XR Interaction Toolkit と OpenXR が必要になる。
+3D 空間が要る。**グレーボックス（灰色の板だけの仮モデル）版は実装済み。**
+
+`codemed-x/standalone/03-nightshift-triage/` に以下がある。
+
+| ファイル | 役割 |
+|---|---|
+| `SimpleWalker.cs` | WASD + マウスの一人称移動。XR パッケージには依存しない |
+| `BedStation.cs` | ベッド・電話・ナースコール共通の「発生すると光り、近づいて [E] で対応する」部品 |
+| `NurseStationPhone.cs` | 医師への疑義照会（エスカレーション）用の電話 |
+| `Editor/NightShiftHospitalBuilder.cs` | 空のシーンにグレーボックス病棟を自動生成するエディタ拡張 |
+
+使い方: 空のシーンで **Tools > Codemed-x > 夜勤: グレーボックス病棟を生成** を実行し、Play するだけ。
+
+設計上のポイント:
+
+- **3D にしても採点基準が変わらないようにしてある。** `NightShiftSim` に
+  `TryAttendTo(taskId)` / `TryOpenEscalationMenu()` という公開 API を用意し、
+  IMGUI のボタンも 3D のベッド・電話も、この同じ API を経由する。
+  「歩いて操作するとログの形が変わる」ということが起きない。
+- **本物のモデルへの差し替えは見た目だけで済む。** `BedStation` / `NurseStationPhone` は
+  Cube のメッシュとマテリアルを対象にしているだけなので、購入・発注したモデルに
+  差し替えても、近接判定や着手のロジックはそのまま動く。
+- IMGUI のタスク一覧・ボタンは残したままにしてある。3D を使わずキーボードだけで
+  最後まで進めることもできる（PC 環境や VR 酔いへの配慮が必要な学習者向け）。
+
+本物のモデルに進む場合:
 
 - 病室・病棟のモデル: Unity Asset Store に医療系の環境アセットがある
-- アバター: Ready Player Me、VRoid Studio、Reallusion Character Creator
+- アバター（他の患者・スタッフを登場させる場合）: Ready Player Me、VRoid Studio、
+  Reallusion Character Creator
 - アニメーション: Mixamo（無料）で基本的な動作をあてる
 - リップシンク: uLipSync（無料）や Oculus Lipsync
+
+HMD で歩き回る段になったら、ここで初めて XR Interaction Toolkit と OpenXR が必要になる
+（`SimpleWalker` を XR Origin に置き換える）。
 
 **先に②や④で 3D をやろうとしないこと。**
 対話シナリオで 3D アバターを作り込んでも、学習効果はほとんど上がらない。
