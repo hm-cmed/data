@@ -83,11 +83,36 @@ namespace CodemedX.NightShift
 
         [SerializeField, Range(10, 24)] private int fontSize = 14;
 
+        [SerializeField, Tooltip(
+            "3D の病棟を歩いて操作するときに入れる。勤務中の画面を左上の小さな表示だけにして、" +
+            "病室が見えるようにする。タスクへの着手はベッドの [E]、医師への電話は" +
+            "ナースステーションの [E] で行う。\n" +
+            "Tools > Codemed-x > 夜勤: グレーボックス病棟を生成 で作った場合は自動で入る。")]
+        private bool compactHud;
+
         [Header("開発")]
         [SerializeField] private bool echoToConsole = true;
 
         private NightShiftTrainingLog _log;
         private Phase _phase = Phase.Briefing;
+
+        /// <summary>
+        /// 現在の局面の名前。背景や BGM を局面ごとに切り替えたいときに、
+        /// 外部（SimBackdrop 等）から参照される。
+        /// このシナリオ自身は表示に関与しないので、依存は一方向のまま保たれる。
+        /// </summary>
+        public string CurrentPhaseName { get { return _phase.ToString(); } }
+
+        /// <summary>
+        /// 画面の操作（マウス）を UI 側が使っている状態。
+        /// 3D 版で、SBAR の選択中や説明・振り返りの画面が出ている間に
+        /// マウスで視点が回ってしまうと選択できないため、SimpleWalker がこれを見て視点操作を止める。
+        /// </summary>
+        public bool IsUiCapturingInput
+        {
+            get { return _showSbar || _phase != Phase.Shift; }
+        }
+
         private float _startedAt;
 
         private readonly List<TaskState> _tasks = new List<TaskState>();
@@ -272,17 +297,15 @@ namespace CodemedX.NightShift
 
         private void OnGUI()
         {
-            if (uiFont != null)
-            {
-                GUI.skin.font = uiFont;
-            }
+            ApplySkin();
 
-            GUI.skin.label.fontSize = fontSize;
-            GUI.skin.button.fontSize = fontSize;
-            GUI.skin.toggle.fontSize = fontSize;
-            GUI.skin.label.wordWrap = true;
-            GUI.skin.button.wordWrap = true;
-            GUI.skin.toggle.wordWrap = true;
+            // 3D の病棟を歩く構成では、全画面のパネルが病室を隠してしまう。
+            // 勤務中だけ左上の小さな表示に切り替える。説明と振り返りは読ませたいので全画面のまま。
+            if (compactHud && _phase == Phase.Shift)
+            {
+                DrawCompactShift();
+                return;
+            }
 
             float width = Mathf.Min(Screen.width - 40f, 900f);
             GUILayout.BeginArea(new Rect((Screen.width - width) * 0.5f, 20f, width, Screen.height - 40f));
@@ -312,6 +335,111 @@ namespace CodemedX.NightShift
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
+        }
+
+        private void ApplySkin()
+        {
+            if (uiFont != null)
+            {
+                GUI.skin.font = uiFont;
+            }
+
+            GUI.skin.label.fontSize = fontSize;
+            GUI.skin.button.fontSize = fontSize;
+            GUI.skin.toggle.fontSize = fontSize;
+            GUI.skin.label.wordWrap = true;
+            GUI.skin.button.wordWrap = true;
+            GUI.skin.toggle.wordWrap = true;
+        }
+
+        /// <summary>
+        /// 3D 版の勤務中に出す小さな表示。
+        /// 「今どのタスクが発生していて、何秒放置されているか」だけを出す。
+        /// 着手・電話はベッドと電話の [E] で行うので、ここにボタンは置かない。
+        /// </summary>
+        private void DrawCompactShift()
+        {
+            float now = ElapsedSeconds;
+            float width = Mathf.Min(Screen.width * 0.34f, 360f);
+
+            GUILayout.BeginArea(new Rect(16f, 16f, width, Screen.height - 32f));
+            GUILayout.Box(string.Format("夜勤　残り {0:0} 秒", RemainingSeconds));
+
+            if (_current != null)
+            {
+                GUILayout.Label(string.Format(
+                    "対応中: {0}（残り {1:0.0} 秒）", _current.Definition.Label, _currentFinishesAt - now));
+            }
+
+            bool anyActive = false;
+            for (int i = 0; i < _tasks.Count; i++)
+            {
+                TaskState task = _tasks[i];
+                if (!task.IsActive)
+                {
+                    continue;
+                }
+
+                anyActive = true;
+                string status = task.HasEscalated
+                    ? "【重大化】"
+                    : string.Format("経過 {0:0} 秒", task.UnattendedSeconds(now));
+
+                GUILayout.Label(string.Format("・{0}　{1}", task.Definition.Label, status));
+            }
+
+            if (!anyActive && _current == null)
+            {
+                GUILayout.Label("（今は落ち着いている）");
+            }
+
+            GUILayout.Space(6f);
+            GUILayout.Label(_escalated
+                ? "医師へ報告済み。まもなく到着する。"
+                : "医師を呼ぶ: ナースステーションの青い電話に近づいて [E]");
+
+            GUILayout.EndArea();
+
+            if (_showSbar)
+            {
+                DrawSbarOverlay(now);
+            }
+        }
+
+        /// <summary>3D 版で電話をとったときに出す SBAR の選択画面。画面中央に重ねて出す。</summary>
+        private void DrawSbarOverlay(float now)
+        {
+            float width = Mathf.Min(Screen.width - 80f, 520f);
+            float height = Mathf.Min(Screen.height - 80f, 360f);
+            Rect area = new Rect(
+                (Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
+
+            GUI.Box(area, string.Empty);
+            GUILayout.BeginArea(new Rect(area.x + 12f, area.y + 12f, area.width - 24f, area.height - 24f));
+            GUILayout.Label("医師への電話");
+            GUILayout.Space(4f);
+            DrawSbarChoices(now);
+            GUILayout.EndArea();
+        }
+
+        /// <summary>SBAR の選択肢。全画面版と 3D 版の両方から呼ぶ（判定を 1 か所に保つため）。</summary>
+        private void DrawSbarChoices(float now)
+        {
+            GUILayout.Label("何を伝えるか（複数選択）:");
+            for (int i = 0; i < scenario.SbarElements.Count; i++)
+            {
+                _sbarChecks[i] = GUILayout.Toggle(_sbarChecks[i], " " + scenario.SbarElements[i]);
+            }
+
+            if (GUILayout.Button("報告する"))
+            {
+                Escalate(now);
+            }
+
+            if (GUILayout.Button("やめる"))
+            {
+                _showSbar = false;
+            }
         }
 
         private void DrawBriefing()
@@ -383,21 +511,7 @@ namespace CodemedX.NightShift
                 }
                 else
                 {
-                    GUILayout.Label("何を伝えるか（複数選択）:");
-                    for (int i = 0; i < scenario.SbarElements.Count; i++)
-                    {
-                        _sbarChecks[i] = GUILayout.Toggle(_sbarChecks[i], " " + scenario.SbarElements[i]);
-                    }
-
-                    if (GUILayout.Button("報告する"))
-                    {
-                        Escalate(now);
-                    }
-
-                    if (GUILayout.Button("やめる"))
-                    {
-                        _showSbar = false;
-                    }
+                    DrawSbarChoices(now);
                 }
             }
             else

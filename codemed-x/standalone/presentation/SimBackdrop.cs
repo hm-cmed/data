@@ -14,7 +14,7 @@ namespace CodemedX.Presentation
     ///
     /// 使い方:
     ///   1. シーンに空の GameObject を作り、このスクリプトを付ける
-    ///   2. Background に背景画像を割り当てる
+    ///   2. Background に背景画像を割り当てる（局面ごとに変えたい場合は Phase Backgrounds を使う）
     ///   3. Characters に立ち絵を追加し、AnchorX（0=左端 / 0.5=中央 / 1=右端）で位置を決める
     ///
     /// 画像は Inspector で差し替えるだけなので、素材が揃う前に灰色の板で
@@ -48,6 +48,11 @@ namespace CodemedX.Presentation
             [SerializeField, Tooltip("この人物を最初から明るく表示する。")]
             private bool speakingByDefault = true;
 
+            [SerializeField, Tooltip(
+                "この人物を表示する局面名（カンマ区切り）。空なら全局面で表示する。" +
+                "例: Interview,Assessment")]
+            private string visibleInPhases = string.Empty;
+
             public Texture2D Texture { get { return texture; } }
             public float AnchorX { get { return anchorX; } }
             public float HeightRatio { get { return heightRatio; } }
@@ -55,11 +60,42 @@ namespace CodemedX.Presentation
             public bool FlipHorizontally { get { return flipHorizontally; } }
             public float DimmedBrightness { get { return dimmedBrightness; } }
             public bool SpeakingByDefault { get { return speakingByDefault; } }
+            public string VisibleInPhases { get { return visibleInPhases; } }
+        }
+
+        /// <summary>局面（Phase）と背景画像の対応 1 件。</summary>
+        [Serializable]
+        public class PhaseBackground
+        {
+            [SerializeField, Tooltip(
+                "シナリオ側の局面名。Console に出る局面名か、各 Sim の Phase enum の名前をそのまま書く。\n" +
+                "① Preparation / Observation / Interview / Assessment / Escalation / Debrief\n" +
+                "② Briefing / Dialogue / Debrief\n" +
+                "③ Briefing / Shift / Debrief\n" +
+                "④ Counseling / LabReview / DoctorCall / Debrief\n" +
+                "⑤ Briefing / Dialogue / Closing / Debrief")]
+            private string phaseName = string.Empty;
+
+            [SerializeField] private Texture2D background;
+
+            public string PhaseName { get { return phaseName; } }
+            public Texture2D Background { get { return background; } }
         }
 
         [Header("背景")]
-        [SerializeField, Tooltip("背景画像。画面いっぱいに、縦横比を保って表示される。")]
+        [SerializeField, Tooltip("既定の背景画像。局面ごとの指定が無いときはこれが使われる。")]
         private Texture2D background;
+
+        [SerializeField, Tooltip(
+            "局面ごとに背景を切り替える。上から順に探し、最初に名前が一致したものを使う。")]
+        private List<PhaseBackground> phaseBackgrounds = new List<PhaseBackground>();
+
+        [SerializeField, Tooltip(
+            "局面を読み取るシナリオのスクリプト。未設定なら同じ GameObject → シーン全体の順に自動で探す。")]
+        private MonoBehaviour phaseSource;
+
+        [SerializeField, Range(0f, 2f), Tooltip("背景が切り替わるときのフェード秒数。0 で即時。")]
+        private float crossFadeSeconds = 0.4f;
 
         [SerializeField, Tooltip("背景が無いときに使う色。")]
         private Color fallbackColor = new Color(0.16f, 0.17f, 0.19f, 1f);
@@ -82,6 +118,12 @@ namespace CodemedX.Presentation
         private Texture2D _solidTexture;
         private bool _speakingInitialized;
 
+        // 局面の追跡とフェード
+        private readonly PhaseWatcher _phase = new PhaseWatcher();
+        private Texture2D _currentTexture;
+        private Texture2D _previousTexture;
+        private float _fadeStartedAt = -1f;
+
         /// <summary>発言中の人物を切り替える。演出を細かくしたくなったら台本側から呼ぶ。</summary>
         public void SetSpeaking(int characterIndex)
         {
@@ -102,10 +144,10 @@ namespace CodemedX.Presentation
             _speakingInitialized = true;
         }
 
-        /// <summary>背景を差し替える。局面ごとに変えたい場合に使う。</summary>
+        /// <summary>背景を差し替える。局面の対応表を使わず手動で切り替えたい場合に使う。</summary>
         public void SetBackground(Texture2D texture)
         {
-            background = texture;
+            BeginFadeTo(texture);
         }
 
         private void Awake()
@@ -114,6 +156,13 @@ namespace CodemedX.Presentation
             _solidTexture.SetPixel(0, 0, Color.white);
             _solidTexture.Apply();
             _solidTexture.hideFlags = HideFlags.HideAndDontSave;
+
+            _phase.Bind(this, phaseSource);
+
+            // 自動で見つけた場合も Inspector に見えるようにしておく（何に繋がったかを確認できる）。
+            phaseSource = _phase.Source;
+
+            _currentTexture = background;
         }
 
         private void OnDestroy()
@@ -123,6 +172,45 @@ namespace CodemedX.Presentation
                 Destroy(_solidTexture);
             }
         }
+
+        private void Update()
+        {
+            if (_phase.Poll())
+            {
+                BeginFadeTo(ResolveBackgroundFor(_phase.CurrentPhase));
+            }
+        }
+
+        private Texture2D ResolveBackgroundFor(string phase)
+        {
+            if (!string.IsNullOrEmpty(phase))
+            {
+                for (int i = 0; i < phaseBackgrounds.Count; i++)
+                {
+                    PhaseBackground entry = phaseBackgrounds[i];
+                    if (entry != null && entry.PhaseName == phase && entry.Background != null)
+                    {
+                        return entry.Background;
+                    }
+                }
+            }
+
+            return background;
+        }
+
+        private void BeginFadeTo(Texture2D texture)
+        {
+            if (texture == _currentTexture)
+            {
+                return;
+            }
+
+            _previousTexture = _currentTexture;
+            _currentTexture = texture;
+            _fadeStartedAt = crossFadeSeconds > 0f ? Time.unscaledTime : -1f;
+        }
+
+        // ------------------------------------------------------------------ 描画
 
         private void OnGUI()
         {
@@ -138,15 +226,42 @@ namespace CodemedX.Presentation
 
         private void DrawBackground(Rect screen)
         {
-            if (background == null)
+            float fade = 1f;
+            if (_fadeStartedAt >= 0f && crossFadeSeconds > 0f)
             {
-                DrawSolid(screen, fallbackColor);
-                return;
+                fade = Mathf.Clamp01((Time.unscaledTime - _fadeStartedAt) / crossFadeSeconds);
+                if (fade >= 1f)
+                {
+                    _fadeStartedAt = -1f;
+                    _previousTexture = null;
+                }
             }
 
-            // 画面を覆いつつ縦横比を保つ（はみ出した分は切り落とす）。
+            // 切り替え中は、前の背景を下に敷いたまま新しい背景を重ねて透過させる。
+            if (fade < 1f && _previousTexture != null)
+            {
+                DrawCover(screen, _previousTexture, 1f);
+            }
+            else if (_currentTexture == null)
+            {
+                DrawSolid(screen, fallbackColor);
+            }
+
+            if (_currentTexture != null)
+            {
+                DrawCover(screen, _currentTexture, fade);
+            }
+            else if (fade < 1f)
+            {
+                DrawSolid(screen, new Color(fallbackColor.r, fallbackColor.g, fallbackColor.b, fade));
+            }
+        }
+
+        /// <summary>画面を覆いつつ縦横比を保って描く（はみ出した分は切り落とす）。</summary>
+        private void DrawCover(Rect screen, Texture2D texture, float alpha)
+        {
             float screenAspect = screen.width / screen.height;
-            float imageAspect = (float)background.width / background.height;
+            float imageAspect = (float)texture.width / texture.height;
 
             Rect target;
             if (imageAspect > screenAspect)
@@ -160,7 +275,10 @@ namespace CodemedX.Presentation
                 target = new Rect(0f, (screen.height - height) * 0.5f, screen.width, height);
             }
 
-            GUI.DrawTexture(target, background, ScaleMode.StretchToFill);
+            Color previousColor = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, alpha);
+            GUI.DrawTexture(target, texture, ScaleMode.StretchToFill);
+            GUI.color = previousColor;
         }
 
         private void DrawDim(Rect screen)
@@ -195,7 +313,7 @@ namespace CodemedX.Presentation
             for (int i = 0; i < characters.Count; i++)
             {
                 Character character = characters[i];
-                if (character.Texture == null)
+                if (character.Texture == null || !IsVisibleInCurrentPhase(character))
                 {
                     continue;
                 }
@@ -225,6 +343,26 @@ namespace CodemedX.Presentation
             }
 
             GUI.color = previousColor;
+        }
+
+        private bool IsVisibleInCurrentPhase(Character character)
+        {
+            string phases = character.VisibleInPhases;
+            if (string.IsNullOrEmpty(phases) || string.IsNullOrEmpty(_phase.CurrentPhase))
+            {
+                return true;
+            }
+
+            string[] names = phases.Split(',');
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (names[i].Trim() == _phase.CurrentPhase)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void DrawSolid(Rect rect, Color color)

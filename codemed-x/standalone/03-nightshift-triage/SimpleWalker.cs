@@ -12,6 +12,10 @@ namespace CodemedX.NightShift
     /// HMD へ進む段になったら XR Origin に置き換える。
     ///
     /// Input System / 旧 Input Manager のどちらでも動く（両方無効なら移動しない）。
+    ///
+    /// 同じフォルダの <see cref="NightShiftSim"/> を見て、メニューが開いている間は操作を止める。
+    /// 他のシナリオで使い回す場合は、その参照を外して <see cref="ControlSuspended"/> を
+    /// 外から切り替えればよい。
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public class SimpleWalker : MonoBehaviour
@@ -28,13 +32,27 @@ namespace CodemedX.NightShift
         [SerializeField, Tooltip("開始時にマウスカーソルを画面へ固定する。Esc で解除。")]
         private bool lockCursorOnStart = true;
 
+        [SerializeField, Tooltip(
+            "メニュー（SBAR の選択、説明、振り返り）が開いている間だけ操作を止めるためのシナリオ。" +
+            "未設定ならシーンから自動で探す。")]
+        private NightShiftSim sim;
+
         private CharacterController _controller;
         private float _pitch;
         private bool _cursorLocked;
+        private bool _suspended;
+
+        /// <summary>true の間、移動と視点操作を止めてカーソルを解放する。</summary>
+        public bool ControlSuspended { get; set; }
 
         private void Awake()
         {
             _controller = GetComponent<CharacterController>();
+
+            if (sim == null)
+            {
+                sim = FindAnyObjectByType<NightShiftSim>();
+            }
 
             if (cameraTransform == null)
             {
@@ -56,6 +74,27 @@ namespace CodemedX.NightShift
 
         private void Update()
         {
+            // メニューが開いている間は、カーソルを解放して視点も移動も止める。
+            // 固定したままだと、SBAR の選択肢を押そうとしただけで視点が回ってしまう。
+            bool suspended = ControlSuspended || (sim != null && sim.IsUiCapturingInput);
+            if (suspended != _suspended)
+            {
+                _suspended = suspended;
+                if (suspended)
+                {
+                    SetCursorLocked(false);
+                }
+                else if (lockCursorOnStart)
+                {
+                    SetCursorLocked(true);
+                }
+            }
+
+            if (suspended)
+            {
+                return;
+            }
+
             // Esc でカーソルを解放し、画面をクリックすると再び固定する。
             // UI のボタンを押したいときに視点操作が邪魔にならないようにするため。
             if (WasCancelPressed())

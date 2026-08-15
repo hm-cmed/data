@@ -19,7 +19,12 @@ C# では、あるクラスに型と同じ名前のメンバーがあると、�
 
 Unity を開かずにこの種のコンパイルエラーを潰すために使う。
 
-    python3 codemed-x/tools/check_csharp_shadowing.py
+    python3 codemed-x/tools/check_csharp_shadowing.py                   # 既定の全範囲
+    python3 codemed-x/tools/check_csharp_shadowing.py codemed-x/standalone  # 範囲を絞る
+
+型名は指定範囲の全ファイルから集める。standalone/ の 5 シナリオは互いに独立した
+名前空間なので、厳密には別のシナリオの型名まで見てしまうが、
+見逃すより多めに拾うほうがこの用途では安全なのでそのままにしてある。
 """
 
 from __future__ import annotations
@@ -29,7 +34,15 @@ import re
 import sys
 from pathlib import Path
 
-RUNTIME_ROOT = Path(__file__).resolve().parents[1] / "unity" / "Assets" / "CodemedX"
+CODEMEDX_ROOT = Path(__file__).resolve().parents[1]
+
+# 引数が無いときに検査する場所。standalone/ の 5 シナリオもここに含める。
+# 含め忘れると「検査したつもりで何も見ていない」状態になり、
+# 実際に一度それでコンパイルエラーを見逃している。
+DEFAULT_ROOTS = (
+    CODEMEDX_ROOT / "unity" / "Assets" / "CodemedX",
+    CODEMEDX_ROOT / "standalone",
+)
 
 TYPE_DECLARATION = re.compile(
     r"^\s*(?:public|internal|private|protected)\s+"
@@ -58,10 +71,27 @@ def strip_noise(source: str) -> str:
     return text
 
 
+def collect_files(roots) -> list[Path]:
+    files: list[Path] = []
+    for root in roots:
+        if root.is_file() and root.suffix == ".cs":
+            files.append(root)
+        elif root.is_dir():
+            files.extend(root.rglob("*.cs"))
+
+    return sorted(set(files))
+
+
 def main() -> int:
-    files = sorted(RUNTIME_ROOT.rglob("*.cs"))
+    # 引数でフォルダやファイルを指定できる。無指定なら DEFAULT_ROOTS を全部見る。
+    roots = [Path(a).resolve() for a in sys.argv[1:]] or list(DEFAULT_ROOTS)
+
+    files = collect_files(roots)
     if not files:
-        print(f"C# ファイルが見つかりません: {RUNTIME_ROOT}", file=sys.stderr)
+        print(
+            "C# ファイルが見つかりません: " + ", ".join(str(r) for r in roots),
+            file=sys.stderr,
+        )
         return 1
 
     sources = {path: strip_noise(io.open(path, encoding="utf-8").read()) for path in files}

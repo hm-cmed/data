@@ -132,8 +132,18 @@ IMGUI 版とまったく同じ `NightShiftSim` の API（`TryAttendTo` / `TryOpe
 本物のモデルに差し替えるときも `BedStation` / `NurseStationPhone` はそのまま使え、
 見た目（Cube のメッシュとマテリアル）だけを入れ替えればよい。
 
-IMGUI のタスク一覧・ボタンは残したままなので、3D を使わずキーボードだけで
-最後まで進めることもできる。
+3D 版では `NightShiftSim` の **Compact Hud** が入る（ビルダーが自動で入れる）。
+勤務中の画面が左上の小さな表示だけになり、病室が隠れなくなる。
+
+- 左上に出るのは「残り秒数・発生中のタスク・各タスクの経過秒」だけ
+- 着手はベッドのランプに近づいて **[E]**、医師への電話は青い電話に近づいて **[E]**
+- 電話をとると SBAR の選択画面が中央に出る。この間は**マウスカーソルが解放され、
+  視点操作が止まる**（選択肢を押そうとして視点が回るのを防ぐため）
+- 説明（Briefing）と振り返り（Debrief）は読ませたいので全画面のまま
+
+**Compact Hud のチェックを外せば、3D のシーンでも従来どおり全画面のボタン UI で
+最後まで進められる。** VR 酔いや PC 環境への配慮が要る学習者には、
+歩かずキーボードだけで完結するこちらを配ればよい。
 
 ### ④ 薬剤師：服薬指導から疑義照会 — `04-pharmacist-inquiry/`
 
@@ -173,6 +183,49 @@ NSAIDs と ACE 阻害薬を併用中の高齢者。患者の「足がむくむ�
 素材が無くても、灰色の板でレイアウトだけ先に決められる。
 どの作り方（2D / 360度実写 / 3D）を選ぶかは
 [`docs/visuals.md`](../docs/visuals.md) を参照。
+
+### 場面が変わったら背景も変える
+
+`SimBackdrop` の **Phase Backgrounds** に「局面名 + 背景画像」を並べる。
+局面が変わると自動で切り替わり、`Cross Fade Seconds` の秒数でフェードする。
+
+局面名は各シナリオの `Phase` の名前をそのまま書く。
+
+| | 局面名（この文字列をそのまま入れる） |
+|---|---|
+| ① 相談援助面接 | `Preparation` / `Observation` / `Interview` / `Assessment` / `Escalation` / `Debrief` |
+| ② 困難な対話 ACP | `Briefing` / `Dialogue` / `Debrief` |
+| ③ 夜勤 | `Briefing` / `Shift` / `Debrief` |
+| ④ 疑義照会 | `Counseling` / `LabReview` / `DoctorCall` / `Debrief` |
+| ⑤ ゲートキーパー | `Briefing` / `Dialogue` / `Closing` / `Debrief` |
+
+一致する行が無い局面では `Background`（既定の背景）に戻る。
+全局面で同じ背景でよければ `Phase Backgrounds` は空のままでよい。
+
+登場人物も局面で出し入れできる。`Characters` の各要素の
+**Visible In Phases** に局面名をカンマ区切りで書くと、その局面でだけ表示される
+（空なら全局面）。④で「電話の場面だけ医師を出す」なら `DoctorCall` と書く。
+
+**シナリオ側のスクリプトは何も変えなくてよい。**
+`SimBackdrop` は同じシーンから `CurrentPhaseName` を持つスクリプトを自動で探す。
+1 シーンに複数のシナリオを置いている場合だけ、`Phase Source` に対象を明示的に割り当てる。
+
+### 360度画像を使う場合
+
+`presentation/` の中身は 3 つ。
+
+| ファイル | 役割 |
+|---|---|
+| `SimBackdrop.cs` | **2D** の背景 + 立ち絵を IMGUI で描く |
+| `PanoramicBackdrop.cs` | **360度**画像（Skybox）を局面ごとに切り替える |
+| `PhaseWatcher.cs` | 「いまどの局面か」をシナリオ側に依存せず読み取る共通部品 |
+
+**360度画像を `SimBackdrop` に割り当てないこと。** 球に貼る前提の絵（横縦比 2:1）を
+平面に描くので端が歪む。360度は `PanoramicBackdrop` を使い、
+シーンに Camera を置いて `Clear Flags` を `Skybox` にする。
+
+2D と 360度のどちらで進めるかは
+[`docs/visuals.md`](../docs/visuals.md) の「①②④⑤ は 2D か、360度のままか」を参照。
 
 ## 1 シーンで動かせるのは 1 つだけ
 

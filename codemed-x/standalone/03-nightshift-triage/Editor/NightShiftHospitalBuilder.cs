@@ -35,7 +35,7 @@ namespace CodemedX.NightShift.EditorTools
             CreateFloor(root.transform);
 
             NightShiftSim sim = CreateSimObject(root.transform);
-            CreatePlayer(root.transform);
+            CreatePlayer(root.transform, sim);
 
             // ナースステーション（起点）。ここから各病室へ向かって配置していく。
             Transform nurseStation = CreateNurseStation(root.transform, sim);
@@ -87,18 +87,26 @@ namespace CodemedX.NightShift.EditorTools
             NightShiftSim existing = Object.FindAnyObjectByType<NightShiftSim>();
             if (existing != null)
             {
+                AssignBoolField(existing, "compactHud", true);
                 return existing;
             }
 
             GameObject simObject = new GameObject("NightShiftSim");
             simObject.transform.SetParent(parent, false);
-            return simObject.AddComponent<NightShiftSim>();
+
+            NightShiftSim sim = simObject.AddComponent<NightShiftSim>();
+
+            // 全画面のパネルのままだと病室が隠れてしまうので、勤務中は小さな表示にする。
+            AssignBoolField(sim, "compactHud", true);
+            return sim;
         }
 
-        private static void CreatePlayer(Transform parent)
+        private static void CreatePlayer(Transform parent, NightShiftSim sim)
         {
-            if (Object.FindAnyObjectByType<SimpleWalker>() != null)
+            SimpleWalker existing = Object.FindAnyObjectByType<SimpleWalker>();
+            if (existing != null)
             {
+                AssignSimField(existing, sim);
                 return;
             }
 
@@ -119,7 +127,7 @@ namespace CodemedX.NightShift.EditorTools
             cameraObject.tag = "MainCamera";
             cameraObject.AddComponent<AudioListener>();
 
-            player.AddComponent<SimpleWalker>();
+            AssignSimField(player.AddComponent<SimpleWalker>(), sim);
         }
 
         private static Transform CreateNurseStation(Transform parent, NightShiftSim sim)
@@ -262,6 +270,20 @@ namespace CodemedX.NightShift.EditorTools
         {
             SerializedObject serialized = new SerializedObject(phone);
             serialized.FindProperty("sim").objectReferenceValue = sim;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignSimField(SimpleWalker walker, NightShiftSim sim)
+        {
+            SerializedObject serialized = new SerializedObject(walker);
+            serialized.FindProperty("sim").objectReferenceValue = sim;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignBoolField(Object target, string propertyName, bool value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            serialized.FindProperty(propertyName).boolValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

@@ -52,6 +52,13 @@ namespace CodemedX.Welfare
 
         private WelfareTrainingLog _log;
         private Phase _phase = Phase.Preparation;
+
+        /// <summary>
+        /// 現在の局面の名前。背景や BGM を局面ごとに切り替えたいときに、
+        /// 外部（SimBackdrop 等）から参照される。
+        /// このシナリオ自身は表示に関与しないので、依存は一方向のまま保たれる。
+        /// </summary>
+        public string CurrentPhaseName { get { return _phase.ToString(); } }
         private float _startedAt;
 
         private readonly HashSet<int> _openedFiles = new HashSet<int>();
