@@ -16,6 +16,9 @@ namespace CodemedX.NightShift
     /// 同じフォルダの <see cref="NightShiftSim"/> を見て、メニューが開いている間は操作を止める。
     /// 他のシナリオで使い回す場合は、その参照を外して <see cref="ControlSuspended"/> を
     /// 外から切り替えればよい。
+    ///
+    /// タブレットでは <see cref="TouchControls"/> の仮想パッドを合わせて読む
+    /// （キーボード・マウスと同時に有効なので、PC 側の動作は変わらない）。
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
     public class SimpleWalker : MonoBehaviour
@@ -37,6 +40,10 @@ namespace CodemedX.NightShift
             "未設定ならシーンから自動で探す。")]
         private NightShiftSim sim;
 
+        [SerializeField, Tooltip(
+            "タブレットの仮想パッド。未設定ならシーンから自動で探す。無くても動く（PC では使わない）。")]
+        private TouchControls touch;
+
         private CharacterController _controller;
         private float _pitch;
         private bool _cursorLocked;
@@ -54,6 +61,11 @@ namespace CodemedX.NightShift
                 sim = FindAnyObjectByType<NightShiftSim>();
             }
 
+            if (touch == null)
+            {
+                touch = FindAnyObjectByType<TouchControls>();
+            }
+
             if (cameraTransform == null)
             {
                 Camera childCamera = GetComponentInChildren<Camera>();
@@ -66,7 +78,8 @@ namespace CodemedX.NightShift
 
         private void Start()
         {
-            if (lockCursorOnStart)
+            // タッチ端末にはマウスカーソルの概念が無いので、固定しようとしない。
+            if (lockCursorOnStart && !Input.touchSupported)
             {
                 SetCursorLocked(true);
             }
@@ -95,23 +108,45 @@ namespace CodemedX.NightShift
                 return;
             }
 
-            // Esc でカーソルを解放し、画面をクリックすると再び固定する。
-            // UI のボタンを押したいときに視点操作が邪魔にならないようにするため。
-            if (WasCancelPressed())
+            Vector2 lookDelta = touch != null ? touch.LookDelta : Vector2.zero;
+
+            // タッチ端末では、マウスのカーソル固定・クリックでの視点操作は行わない
+            // （そもそもマウスが無く、タッチパッドの読み取りと衝突するだけなので）。
+            if (!Input.touchSupported)
             {
-                SetCursorLocked(false);
-            }
-            else if (!_cursorLocked && WasClickPressed())
-            {
-                SetCursorLocked(true);
+                // Esc でカーソルを解放し、画面をクリックすると再び固定する。
+                // UI のボタンを押したいときに視点操作が邪魔にならないようにするため。
+                if (WasCancelPressed())
+                {
+                    SetCursorLocked(false);
+                }
+                else if (!_cursorLocked && WasClickPressed())
+                {
+                    SetCursorLocked(true);
+                }
+
+                if (_cursorLocked)
+                {
+                    lookDelta += ReadLookDelta();
+                }
             }
 
-            if (_cursorLocked)
+            if (lookDelta != Vector2.zero)
             {
-                ApplyLook(ReadLookDelta());
+                ApplyLook(lookDelta);
             }
 
-            ApplyMove(ReadMoveInput());
+            Vector2 moveInput = ReadMoveInput();
+            if (touch != null)
+            {
+                moveInput += touch.MoveInput;
+                if (moveInput.sqrMagnitude > 1f)
+                {
+                    moveInput.Normalize();
+                }
+            }
+
+            ApplyMove(moveInput);
         }
 
         private void ApplyLook(Vector2 delta)

@@ -126,7 +126,10 @@ def main() -> int:
 
     print(f"✗ 型名を隠すメンバーが {len(problems)} 件あります:")
     for path, member_name, declared_type, uses_static_access in problems:
-        relative = path.relative_to(RUNTIME_ROOT.parents[2])
+        try:
+            relative = path.relative_to(CODEMEDX_ROOT.parent)
+        except ValueError:
+            relative = path
         severity = "コンパイルエラー" if uses_static_access else "潜在的な衝突"
         print(f"  - [{severity}] {relative}")
         print(f"      メンバー {declared_type} {member_name} が同名の型 {member_name} を隠しています")

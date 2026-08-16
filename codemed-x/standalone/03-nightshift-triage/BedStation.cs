@@ -155,10 +155,15 @@ namespace CodemedX.NightShift
                 return;
             }
 
+            // ボタンにしてあるのは、キーボードの無いタブレットでもタップで着手できるようにするため。
+            // PC では引き続き [E] キーでも着手できる（下の Update を参照）。
             const float width = 260f;
-            const float height = 28f;
-            GUI.Box(new Rect((Screen.width - width) * 0.5f, Screen.height - 70f, width, height),
-                "[E] 対応する： " + snapshot.Value.Label);
+            const float height = 36f;
+            if (GUI.Button(new Rect((Screen.width - width) * 0.5f, Screen.height - 70f, width, height),
+                "[E] 対応する： " + snapshot.Value.Label))
+            {
+                sim.TryAttendTo(taskId);
+            }
         }
 
         private static bool WasInteractPressed()

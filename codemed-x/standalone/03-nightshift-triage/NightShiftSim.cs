@@ -396,7 +396,7 @@ namespace CodemedX.NightShift
             GUILayout.Space(6f);
             GUILayout.Label(_escalated
                 ? "医師へ報告済み。まもなく到着する。"
-                : "医師を呼ぶ: ナースステーションの青い電話に近づいて [E]");
+                : "医師を呼ぶ: ナースステーションの青い電話に近づいて [E] またはタップ");
 
             GUILayout.EndArea();
 

@@ -107,6 +107,15 @@ namespace CodemedX.NightShift.EditorTools
             if (existing != null)
             {
                 AssignSimField(existing, sim);
+
+                TouchControls existingTouch = Object.FindAnyObjectByType<TouchControls>();
+                if (existingTouch == null)
+                {
+                    existingTouch = existing.gameObject.AddComponent<TouchControls>();
+                }
+
+                AssignSimField(existingTouch, sim);
+                AssignTouchField(existing, existingTouch);
                 return;
             }
 
@@ -127,7 +136,12 @@ namespace CodemedX.NightShift.EditorTools
             cameraObject.tag = "MainCamera";
             cameraObject.AddComponent<AudioListener>();
 
-            AssignSimField(player.AddComponent<SimpleWalker>(), sim);
+            SimpleWalker walker = player.AddComponent<SimpleWalker>();
+            AssignSimField(walker, sim);
+
+            TouchControls touchControls = player.AddComponent<TouchControls>();
+            AssignSimField(touchControls, sim);
+            AssignTouchField(walker, touchControls);
         }
 
         private static Transform CreateNurseStation(Transform parent, NightShiftSim sim)
@@ -277,6 +291,20 @@ namespace CodemedX.NightShift.EditorTools
         {
             SerializedObject serialized = new SerializedObject(walker);
             serialized.FindProperty("sim").objectReferenceValue = sim;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignSimField(TouchControls touchControls, NightShiftSim sim)
+        {
+            SerializedObject serialized = new SerializedObject(touchControls);
+            serialized.FindProperty("sim").objectReferenceValue = sim;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignTouchField(SimpleWalker walker, TouchControls touchControls)
+        {
+            SerializedObject serialized = new SerializedObject(walker);
+            serialized.FindProperty("touch").objectReferenceValue = touchControls;
             serialized.ApplyModifiedPropertiesWithoutUndo();
         }
 

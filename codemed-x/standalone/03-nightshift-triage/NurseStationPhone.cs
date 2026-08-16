@@ -56,10 +56,15 @@ namespace CodemedX.NightShift
                 return;
             }
 
+            // ボタンにしてあるのは、キーボードの無いタブレットでもタップで開けるようにするため。
+            // PC では引き続き [E] キーでも開ける（下の Update を参照）。
             const float width = 260f;
-            const float height = 28f;
-            GUI.Box(new Rect((Screen.width - width) * 0.5f, Screen.height - 70f, width, height),
-                "[E] 医師に電話する");
+            const float height = 36f;
+            if (GUI.Button(new Rect((Screen.width - width) * 0.5f, Screen.height - 70f, width, height),
+                "[E] 医師に電話する"))
+            {
+                sim.TryOpenEscalationMenu();
+            }
         }
 
         private static bool WasInteractPressed()

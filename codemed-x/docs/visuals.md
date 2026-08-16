@@ -150,10 +150,15 @@ HMD で見回すと、その場に居る感覚が一気に出る。
 
 | ファイル | 役割 |
 |---|---|
-| `SimpleWalker.cs` | WASD + マウスの一人称移動。XR パッケージには依存しない |
-| `BedStation.cs` | ベッド・電話・ナースコール共通の「発生すると光り、近づいて [E] で対応する」部品 |
+| `SimpleWalker.cs` | 一人称移動。PC は WASD + マウス、タブレットは `TouchControls` を読む |
+| `TouchControls.cs` | タブレット用の仮想パッド（左ドラッグ＝移動、右ドラッグ＝視点） |
+| `BedStation.cs` | ベッド・電話・ナースコール共通の「発生すると光り、近づいて [E]／タップで対応する」部品 |
 | `NurseStationPhone.cs` | 医師への疑義照会（エスカレーション）用の電話 |
 | `Editor/NightShiftHospitalBuilder.cs` | 空のシーンにグレーボックス病棟を自動生成するエディタ拡張 |
+
+PC でもタブレットでも同じシーンで動く。`TouchControls` はタッチに対応した端末でだけ
+仮想パッドを描くので、切り替えの設定は要らない。ブラウザ（WebGL）への配り方は
+[`webgl-deploy.md`](webgl-deploy.md) を参照。
 
 使い方: 空のシーンで **Tools > Codemed-x > 夜勤: グレーボックス病棟を生成** を実行し、Play するだけ。
 

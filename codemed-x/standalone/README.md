@@ -116,15 +116,22 @@ SPIKES の 6 ステップを進みながら、双方との関係を保って方�
 
 | ファイル | 役割 |
 |---|---|
-| `SimpleWalker.cs` | WASD + マウスの一人称移動（XR パッケージ不要） |
-| `BedStation.cs` | ベッド・電話・ナースコール共通の「近づいて [E] で対応する」部品 |
+| `SimpleWalker.cs` | 一人称移動。PC は WASD + マウス、タブレットは `TouchControls` の仮想パッドを読む |
+| `TouchControls.cs` | タブレット用の仮想パッド（画面左ドラッグ＝移動、右ドラッグ＝視点） |
+| `BedStation.cs` | ベッド・電話・ナースコール共通の「近づいて [E]／タップで対応する」部品 |
 | `NurseStationPhone.cs` | 医師への疑義照会（エスカレーション）用の電話 |
-| `Editor/NightShiftHospitalBuilder.cs` | グレーボックス病棟をメニュー 1 つで生成 |
+| `Editor/NightShiftHospitalBuilder.cs` | グレーボックス病棟をメニュー 1 つで生成（`TouchControls` の配線も自動） |
 
 使い方:
 
 1. 空のシーンで **Tools > Codemed-x > 夜勤: グレーボックス病棟を生成**
-2. Play。WASD + マウスで歩き、ベッドや電話に近づいて **[E]** で対応する
+2. Play。
+   - **PC**: WASD + マウスで歩き、ベッドや電話に近づいて **[E]** で対応する
+   - **タブレット**: 画面の左半分をドラッグで移動、右半分をドラッグで視点。
+     近づくと出る「[E] 対応する」のボタンはタップで押せる
+
+`TouchControls` はタッチに対応した端末（`Input.touchSupported`）でだけ仮想パッドを描く。
+PC では何も表示・入力しないので、同じシーンのまま両方の端末に配れる。
 
 生成されるのは灰色の板だけの仮モデル。判定・スコア・ログは
 IMGUI 版とまったく同じ `NightShiftSim` の API（`TryAttendTo` / `TryOpenEscalationMenu`）を
@@ -242,6 +249,12 @@ NSAIDs と ACE 阻害薬を併用中の高齢者。患者の「足がむくむ�
 `File > New Scene` で 5 つのシーンを作り、それぞれに 1 つずつ置く。
 演習で 1 本ずつ配る運用にもそのまま乗る。
 
+**C. ランチャーで 1 つにまとめる（ブラウザで配るならこれ）**
+
+`00-launcher/ScenarioLauncher.cs` を使うと、5 つのシーンへの入り口となる
+メニュー画面を 1 つ作れる。ブラウザ（WebGL）で 1 つの URL を配りたい場合はこちら。
+手順は [`docs/webgl-deploy.md`](../docs/webgl-deploy.md) を参照。
+
 事故防止として、**先に起動した 1 本だけが動く**ようにしてある。
 2 つ目以降は自動的に待機し、Console に次の警告が出る。
 
@@ -256,3 +269,13 @@ NSAIDs と ACE 阻害薬を併用中の高齢者。患者の「足がむくむ�
 各シナリオのスクリプトの Inspector に **Ui Font** の欄がある。
 日本語を含むフォント（例: Windows の `meiryo.ttf`）をプロジェクトに取り込んで割り当てる。
 多くの環境では未設定のままでも表示される。
+
+**WebGL では未設定のままだと確実に □ になる。** ブラウザには OS のフォントへ
+フォールバックする仕組みが無いため、必ず日本語フォントを `Ui Font` に割り当てる。
+詳しくは [`docs/webgl-deploy.md`](../docs/webgl-deploy.md) を参照。
+
+## ブラウザ・タブレットで使ってもらう
+
+PC のブラウザや iPad の Safari から使ってもらうには、Unity の **WebGL ビルド**にする。
+初めてでも迷わないよう、Build Settings の設定からホスティングまでを
+[`docs/webgl-deploy.md`](../docs/webgl-deploy.md) に手順化した。
