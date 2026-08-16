@@ -98,11 +98,28 @@ Unity Hub でこのプロジェクトのバージョンに **WebGL Build Support
 
 - **Decompression Fallback**: `Disabled` にした場合は関係ないので触らなくてよい
 
-### Other Settings（触らなくてよいが、詰まったときのために）
+### Other Settings — ここも必須設定が 1 つある
+
+- **Active Input Handling** を **`Both`** にする。**これは省略できない。**
+
+  `SimpleWalker.cs` / `TouchControls.cs` は新 Input System と旧 Input Manager の
+  両方に対応するコードを書いてあり、さらに「タッチ対応端末か」の判定
+  （`Input.touchSupported`）を `#if` で囲まずに直接呼んでいる。
+  ここが `Input System Package (New)` だけになっていると、この呼び出しが
+  **実行時に例外を投げて止まる。** 既定では `Input Manager (Old)` のことが多いので、
+  ここを確認して `Both` に変更する。
+
+- **Auto Graphics API** のチェックを外し、**`WebGL2`** だけを残す
+  （複数の Graphics API を自動選択させると、ブラウザによって挙動が揺れることがあるため）
 
 - **Color Space**: 既定（Linear）のままでよい
 - **Memory Size**: 今回の 5 本は IMGUI 中心で軽いので、既定値のままで足りるはず。
   ③の 3D 病棟を大きくした場合だけ、動作が重ければ増やす
+
+**このプロジェクトに WebXR（ブラウザで VR ヘッドセット表示）は不要。**
+①〜⑤は VR 前提ではなく PC ブラウザ + iPad のタッチ操作を想定しているうえ、
+**iPad の Safari はそもそも WebXR に対応していない**（Apple 未対応）。
+WebXR Exporter 等のパッケージを見かけても、今回の目的には使わないので入れなくてよい。
 
 ## 6. ビルドする
 
@@ -178,6 +195,7 @@ Inspector に **Ui Font** の欄がある。日本語を含む TrueType フォ�
 | iPad でボタンが反応しない／視点が回らない | ③ は `TouchControls` が付いているか確認（`NightShiftHospitalBuilder` で生成すれば自動）。①②④⑤ は通常のボタンなのでタップで反応するはず |
 | iPad で長時間プレイすると落ちる | iPad Safari はメモリに厳しい。他の Safari タブを閉じる、360度画像のような重いテクスチャを避ける（[docs/visuals.md](visuals.md) 参照） |
 | ランチャーのボタンを押しても切り替わらない | シーン名の不一致が最多。Build Settings に登録した名前と、`ScenarioLauncher` の **Scene Name** が 1 文字も違わず一致しているか確認 |
+| ③ を開いた瞬間に固まる／Console に `InvalidOperationException`（Input 関連） | **Active Input Handling** が `Input System Package (New)` だけになっている。Player Settings > Other Settings で `Both` に変更して再ビルド |
 | 学習履歴の送信でエラーになる（Console に CORS 関連の表示） | ログ送信先（GAS 等）がブラウザからのアクセスに CORS ヘッダーを返していない。送信先の設定を見直す。ローカルでの動作確認だけならログ送信を無効にしてもよい |
 
 ## 5 本を別々に配る場合との違い
