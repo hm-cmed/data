@@ -54,6 +54,7 @@ namespace CodemedX.Launcher
         private List<MenuItem> items = new List<MenuItem>();
 
         private string _lastError = string.Empty;
+        private Vector2 _scroll;
 
         private void Awake()
         {
@@ -89,6 +90,11 @@ namespace CodemedX.Launcher
             GUILayout.Label(title);
             GUILayout.Space(20f);
 
+            // 高さを固定の Area にしてボタンを並べるだけだと、項目数や画面の高さ次第で
+            // 下側がはみ出して消える（Area は溢れた分を描かず、スクロールもしない）。
+            // ウィンドウを縮めたブラウザや iPad の縦画面でも全項目に届くよう、スクロールにする。
+            _scroll = GUILayout.BeginScrollView(_scroll);
+
             for (int i = 0; i < items.Count; i++)
             {
                 MenuItem item = items[i];
@@ -107,6 +113,7 @@ namespace CodemedX.Launcher
                 GUILayout.Label(_lastError);
             }
 
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
