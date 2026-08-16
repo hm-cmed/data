@@ -121,6 +121,24 @@ Unity Hub でこのプロジェクトのバージョンに **WebGL Build Support
 **iPad の Safari はそもそも WebXR に対応していない**（Apple 未対応）。
 WebXR Exporter 等のパッケージを見かけても、今回の目的には使わないので入れなくてよい。
 
+### WebXR のチュートリアルを先に試した場合、戻す設定
+
+WebXR（ブラウザで VR ヘッドセット表示）のチュートリアルを先に試したプロジェクトを
+そのまま使う場合、次を確認する。入れたままでも動くことはあるが、
+**WebGL Template だけは必ず確認する**（表示が崩れる原因になりやすい）。
+
+| 場所 | 戻す内容 |
+|---|---|
+| Player Settings > Resolution and Presentation > **WebGL Template** | VR 用テンプレート（例: `WebXR2020`）になっていたら **`Default`** に戻す |
+| Project Settings > **XR Plug-in Management** > WebGL タブ | **Plug-in Providers** のチェックを外す（起動時に XR を初期化させない） |
+| Build Settings > **Scenes In Build** | WebXR チュートリアルのサンプルシーン（例: `Desert.unity`）が残っていれば外し、`00-Launcher` + ①〜⑤の 6 シーンだけにする |
+| Package Manager > My Registries > OpenUPM | 使わないなら `WebXR Export` / `WebXR Interactions` を Remove |
+| Project ウィンドウ | `Assets/Samples/WebXR Interactions` 等のサンプルフォルダが残っていれば削除 |
+| Project Settings > Package Manager > Scoped Registries | 上記パッケージ削除後なら、OpenUPM の登録は削除してよい（残しても実害は無い） |
+
+**Active Input Handling = Both / Auto Graphics API OFF・WebGL2 のみ / Compression Format = Disabled は戻さない。**
+これらは WebXR とは関係なく、このプロジェクトのコードに必要な設定として上でそのまま説明している。
+
 ## 6. ビルドする
 
 1. **Build Settings** に戻り、**Build**（または **Build And Run**）
