@@ -14,13 +14,17 @@
 1. 5 つのシーンの名前をそろえる
 2. ランチャー（メニュー）シーンを作る
 3. WebGL モジュールを入れる
-4. Build Settings に 6 つのシーンを登録する
+4. Build Profiles に 6 つのシーンを登録する
 5. Player Settings を WebGL 向けに直す
 6. ビルドする
 7. 手元でざっと確認する
 8. どこかに置く（ホスティング）
 9. PC と iPad から開いて確認する
 ```
+
+**Unity バージョンによる違い**: この章では Unity 6 の **Build Profiles**（`File > Build Profiles`）で説明する。
+古いバージョンの Unity では同じ役割を **Build Settings**（`File > Build Settings`）が持っている。
+`File` メニューにどちらの項目があるかで、使っているのがどちらか分かる。
 
 ## 1. 5 つのシーンの名前をそろえる
 
@@ -50,7 +54,7 @@
 4. `standalone/00-launcher/ScenarioLauncher.cs` をその GameObject にドラッグして付ける
 5. Play して確認する。**Items** が空でも、既定の 5 本（① 〜 ⑤、上の表と同じシーン名）で
    自動的に埋まる。ボタンを押すと該当のシーンに切り替わる
-   （この時点では Build Settings に未登録なので Console にエラーが出るのが正常。次の章で直す）
+   （この時点では Build Profiles に未登録なので Console にエラーが出るのが正常。次の章で直す）
 
 シーン名を上の表と変えた場合は、Inspector の **Items** を開き、
 各行の **Scene Name** を実際のシーン名に書き換える。
@@ -68,19 +72,29 @@ Unity Hub でこのプロジェクトのバージョンに **WebGL Build Support
 
 インストール済みなら、この章は不要。
 
-## 4. Build Settings に 6 つのシーンを登録する
+## 4. Build Profiles に 6 つのシーンを登録する
 
-1. **File > Build Settings**
-2. **Scenes In Build** に、Project ウィンドウから 6 つのシーンをドラッグして登録する。
+1. **File > Build Profiles** を開く
+
+   Unity 6 では、プラットフォームの一覧（Windows / macOS / Linux / WebGL など）が
+   タイルまたはリストで並んでいる。**File** メニューに `Build Profiles` が無く
+   `Build Settings` しかない場合は、古い Unity バージョンなので手順3を参照。
+
+2. 一覧から **WebGL** を選ぶ。選んだプラットフォームの詳細側に
+   **Switch Platform** ボタンがあれば押す（初回はしばらく時間がかかる）。
+   すでに WebGL がアクティブな場合はこのボタンは出ず、代わりに **Build** ボタンだけになっている
+
+3. シーンの登録は、Build Profiles ウィンドウの中の **Scene List**
+   （`Open Scene List` のようなボタンから開く場合もある）で行う。
+   Project ウィンドウから 6 つのシーンをドラッグして登録する。
    **`00-Launcher` を一番上（先頭）にする**（WebGL は一番上のシーンから起動するため）
-3. 左下の **Platform** リストで **WebGL** を選び、**Switch Platform**
-   （初回はしばらく時間がかかる）
 
 登録し終えたら、いったんランチャーシーンで Play し、各ボタンでエラーが出なくなっているか確認する。
 
 ## 5. Player Settings を WebGL 向けに直す
 
-**Build Settings** の左下 **Player Settings...** を開く。左のタブから WebGL のアイコン（📱のような形）を選ぶ。
+Build Profiles ウィンドウの中（または右上）に **Player Settings...** へのボタンがあるので開く。
+左のタブから WebGL のアイコン（📱のような形）を選ぶ。
 
 ### Resolution and Presentation
 
@@ -131,7 +145,7 @@ WebXR（ブラウザで VR ヘッドセット表示）のチュートリアル�
 |---|---|
 | Player Settings > Resolution and Presentation > **WebGL Template** | VR 用テンプレート（例: `WebXR2020`）になっていたら **`Default`** に戻す |
 | Project Settings > **XR Plug-in Management** > WebGL タブ | **Plug-in Providers** のチェックを外す（起動時に XR を初期化させない） |
-| Build Settings > **Scenes In Build** | WebXR チュートリアルのサンプルシーン（例: `Desert.unity`）が残っていれば外し、`00-Launcher` + ①〜⑤の 6 シーンだけにする |
+| Build Profiles（旧 Build Settings）の **Scene List** | WebXR チュートリアルのサンプルシーン（例: `Desert.unity`）が残っていれば外し、`00-Launcher` + ①〜⑤の 6 シーンだけにする |
 | Package Manager > My Registries > OpenUPM | 使わないなら `WebXR Export` / `WebXR Interactions` を Remove |
 | Project ウィンドウ | `Assets/Samples/WebXR Interactions` 等のサンプルフォルダが残っていれば削除 |
 | Project Settings > Package Manager > Scoped Registries | 上記パッケージ削除後なら、OpenUPM の登録は削除してよい（残しても実害は無い） |
@@ -141,7 +155,7 @@ WebXR（ブラウザで VR ヘッドセット表示）のチュートリアル�
 
 ## 6. ビルドする
 
-1. **Build Settings** に戻り、**Build**（または **Build And Run**）
+1. **Build Profiles**（または Build Settings）に戻り、**Build**（または **Build And Run**）
 2. 保存先フォルダを選ぶ（例: プロジェクトの外に `webgl-build` フォルダを新規作成）
 3. しばらく待つ（数分〜。プロジェクトの規模による）
 
@@ -212,7 +226,7 @@ Inspector に **Ui Font** の欄がある。日本語を含む TrueType フォ�
 | 文字が □ になる | 上の「日本語が表示されない」を参照。**Ui Font** 未設定のまま WebGL に持っていくと必ず起きる |
 | iPad でボタンが反応しない／視点が回らない | ③ は `TouchControls` が付いているか確認（`NightShiftHospitalBuilder` で生成すれば自動）。①②④⑤ は通常のボタンなのでタップで反応するはず |
 | iPad で長時間プレイすると落ちる | iPad Safari はメモリに厳しい。他の Safari タブを閉じる、360度画像のような重いテクスチャを避ける（[docs/visuals.md](visuals.md) 参照） |
-| ランチャーのボタンを押しても切り替わらない | シーン名の不一致が最多。Build Settings に登録した名前と、`ScenarioLauncher` の **Scene Name** が 1 文字も違わず一致しているか確認 |
+| ランチャーのボタンを押しても切り替わらない | シーン名の不一致が最多。Build Profiles の Scene List に登録した名前と、`ScenarioLauncher` の **Scene Name** が 1 文字も違わず一致しているか確認 |
 | ③ を開いた瞬間に固まる／Console に `InvalidOperationException`（Input 関連） | **Active Input Handling** が `Input System Package (New)` だけになっている。Player Settings > Other Settings で `Both` に変更して再ビルド |
 | 学習履歴の送信でエラーになる（Console に CORS 関連の表示） | ログ送信先（GAS 等）がブラウザからのアクセスに CORS ヘッダーを返していない。送信先の設定を見直す。ローカルでの動作確認だけならログ送信を無効にしてもよい |
 
@@ -221,5 +235,5 @@ Inspector に **Ui Font** の欄がある。日本語を含む TrueType フォ�
 このガイドはランチャー経由で 1 つの URL にまとめる方法。
 演習ごとに 1 本だけ渡したい（他のシナリオを見せたくない）場合は、
 ランチャーを使わず、シナリオ 1 本だけを含む WebGL ビルドを 5 回作ってもよい。
-その場合は Build Settings にそのシナリオのシーン 1 つだけを登録する。
+その場合は Build Profiles の Scene List にそのシナリオのシーン 1 つだけを登録する。
 コード側の変更は不要（`standalone/README.md` の「1 シーンで動かせるのは 1 つだけ」を参照）。

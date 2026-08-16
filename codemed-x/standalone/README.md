@@ -277,5 +277,5 @@ NSAIDs と ACE 阻害薬を併用中の高齢者。患者の「足がむくむ�
 ## ブラウザ・タブレットで使ってもらう
 
 PC のブラウザや iPad の Safari から使ってもらうには、Unity の **WebGL ビルド**にする。
-初めてでも迷わないよう、Build Settings の設定からホスティングまでを
+初めてでも迷わないよう、Build Profiles（Unity 6。古いバージョンでは Build Settings）の設定からホスティングまでを
 [`docs/webgl-deploy.md`](../docs/webgl-deploy.md) に手順化した。
