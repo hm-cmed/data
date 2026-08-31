@@ -37,3 +37,78 @@ and Rhat is the potential scale reduction factor on split chains (at
 convergence, Rhat=1).
 
 収束診断: 最大Rhat = 1.0016, 最小 n_eff = 4294
+
+===== [モデル2: Poisson GLMM, 連続性補正なし]  主解析 (5 RCTs)  =====
+Inference for Stan model: anon_model.
+4 chains, each with iter=4000; warmup=1000; thin=1; 
+post-warmup draws per chain=3000, total post-warmup draws=12000.
+
+            mean se_mean    sd   2.5%    50%  97.5% n_eff  Rhat
+theta     -1.605   0.013 0.881 -3.601 -1.511 -0.137  4885 1.001
+tau        0.739   0.007 0.560  0.030  0.622  2.095  6070 1.000
+tau2       0.859   0.015 1.235  0.001  0.387  4.391  7165 1.000
+RR_pooled  0.278   0.003 0.241  0.027  0.221  0.872  6132 1.000
+RR_pred    0.540   0.057 6.277  0.011  0.229  1.951 11982 1.000
+
+Samples were drawn using NUTS(diag_e) at Mon Aug 31 12:56:06 2026.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split chains (at 
+convergence, Rhat=1).
+
+収束診断: 最大Rhat = 1.0009, 最小 n_eff = 4128
+recompiling to avoid crashing R session
+
+===== [モデル2: Poisson GLMM, 連続性補正なし]  感度解析 (6 RCTs)  =====
+Inference for Stan model: anon_model.
+4 chains, each with iter=4000; warmup=1000; thin=1; 
+post-warmup draws per chain=3000, total post-warmup draws=12000.
+
+            mean se_mean    sd   2.5%    50%  97.5% n_eff Rhat
+theta     -1.356   0.008 0.712 -2.936 -1.292 -0.118  7074    1
+tau        0.651   0.006 0.507  0.027  0.540  1.914  6514    1
+tau2       0.681   0.012 1.032  0.001  0.292  3.664  7650    1
+RR_pooled  0.324   0.003 0.243  0.053  0.275  0.889  7650    1
+RR_pred    0.487   0.024 2.525  0.022  0.279  1.838 11154    1
+
+Samples were drawn using NUTS(diag_e) at Mon Aug 31 12:57:45 2026.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split chains (at 
+convergence, Rhat=1).
+
+収束診断: 最大Rhat = 1.0005, 最小 n_eff = 4389
+Warning messages:
+1: There were 1 divergent transitions after warmup. See
+https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+to find out why this is a problem and how to eliminate them. 
+2: Examine the pairs() plot to diagnose sampling problems
+ 
+
+
+===== まとめ (ベイジアンメタ解析, Stan) =====
+                                                                                                                                                     analysis
+1                                                       \343\203\242\343\203\207\343\203\2531(Normal-Normal, logRR)_\344\270\273\350\247\243\346\236\2205RCTs
+2                                           \343\203\242\343\203\207\343\203\2531(Normal-Normal, logRR)_\346\204\237\345\272\246\350\247\243\346\236\2206RCTs
+3             \343\203\242\343\203\207\343\203\2532(Poisson GLMM, \350\243\234\346\255\243\343\201\252\343\201\227)_\344\270\273\350\247\243\346\236\2205RCTs
+4 \343\203\242\343\203\207\343\203\2532(Poisson GLMM, \350\243\234\346\255\243\343\201\252\343\201\227)_\346\204\237\345\272\246\350\247\243\346\236\2206RCTs
+  n_studies RR_median RR_mean RR_CrI_lower RR_CrI_upper tau_median P_RR_lt_1
+1         5     0.392   0.460       0.1119        1.184      0.426     0.951
+2         6     0.423   0.487       0.1470        1.218      0.376     0.948
+3         5     0.221   0.278       0.0273        0.872      0.622     0.984
+4         6     0.275   0.324       0.0531        0.889      0.540     0.985
+  RR_pred_CrI_lower RR_pred_CrI_upper rhat_max ess_min
+1            0.0601              2.33        1    4400
+2            0.0815              2.08        1    4294
+3            0.0106              1.95        1    4128
+4            0.0221              1.84        1    4389
+
+P(RR < 1 | data) [プロバイオティクス群がリスクを下げる事後確率]:
+                                                                                                                                                     analysis
+1                                                       \343\203\242\343\203\207\343\203\2531(Normal-Normal, logRR)_\344\270\273\350\247\243\346\236\2205RCTs
+2                                           \343\203\242\343\203\207\343\203\2531(Normal-Normal, logRR)_\346\204\237\345\272\246\350\247\243\346\236\2206RCTs
+3             \343\203\242\343\203\207\343\203\2532(Poisson GLMM, \350\243\234\346\255\243\343\201\252\343\201\227)_\344\270\273\350\247\243\346\236\2205RCTs
+4 \343\203\242\343\203\207\343\203\2532(Poisson GLMM, \350\243\234\346\255\243\343\201\252\343\201\227)_\346\204\237\345\272\246\350\247\243\346\236\2206RCTs
+  P_RR_lt_1
+1 0.9506667
+2 0.9480000
+3 0.9842500
+4 0.9845000
