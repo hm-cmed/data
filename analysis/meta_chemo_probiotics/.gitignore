@@ -1,0 +1,3 @@
+# rstan auto_write compiled model cache (build artifact, regenerated from .stan source)
+re_logrr.rds
+poisson_glmm_rr.rds

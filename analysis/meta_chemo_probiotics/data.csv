@@ -1,0 +1,7 @@
+study,cancer_type,ctrl_events,ctrl_n,prob_events,prob_n,included_main,note
+Mego 2015,大腸癌,4,23,0,23,1,
+Zeng 2024,乳癌,6,20,3,20,1,
+DE Souza 2025,消化器癌,2,14,1,14,1,
+Tian 2019,肺癌,1,21,0,20,1,
+Wei 2024,肺癌,1,49,0,42,1,
+Zaharuddin 2019,大腸癌,1,6,1,8,0,sensitivity analysis only (subgroup of a larger trial)

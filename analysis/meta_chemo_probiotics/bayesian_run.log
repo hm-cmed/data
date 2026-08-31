@@ -1,0 +1,39 @@
+
+===== [モデル1: Normal-Normal, log(RR)スケール]  主解析 (5 RCTs)  =====
+Inference for Stan model: anon_model.
+4 chains, each with iter=4000; warmup=1000; thin=1; 
+post-warmup draws per chain=3000, total post-warmup draws=12000.
+
+            mean se_mean    sd   2.5%    50% 97.5% n_eff Rhat
+theta     -0.952   0.007 0.598 -2.190 -0.937 0.169  6397    1
+tau        0.521   0.005 0.422  0.016  0.426 1.571  7047    1
+tau2       0.450   0.008 0.721  0.000  0.181 2.467  9128    1
+RR_pooled  0.460   0.004 0.313  0.112  0.392 1.184  5975    1
+RR_pred    0.632   0.019 2.064  0.060  0.393 2.334 11609    1
+
+Samples were drawn using NUTS(diag_e) at Mon Aug 31 12:52:35 2026.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split chains (at 
+convergence, Rhat=1).
+
+収束診断: 最大Rhat = 1.0002, 最小 n_eff = 4400
+recompiling to avoid crashing R session
+
+===== [モデル1: Normal-Normal, log(RR)スケール]  感度解析 (6 RCTs)  =====
+Inference for Stan model: anon_model.
+4 chains, each with iter=4000; warmup=1000; thin=1; 
+post-warmup draws per chain=3000, total post-warmup draws=12000.
+
+            mean se_mean    sd   2.5%    50% 97.5% n_eff  Rhat
+theta     -0.862   0.006 0.531 -1.917 -0.860 0.197  8190 1.000
+tau        0.466   0.004 0.374  0.016  0.376 1.407  8836 1.001
+tau2       0.357   0.005 0.559  0.000  0.141 1.979 10531 1.000
+RR_pooled  0.487   0.003 0.285  0.147  0.423 1.218  7347 1.000
+RR_pred    0.623   0.022 2.295  0.082  0.428 2.078 11293 1.000
+
+Samples were drawn using NUTS(diag_e) at Mon Aug 31 12:54:22 2026.
+For each parameter, n_eff is a crude measure of effective sample size,
+and Rhat is the potential scale reduction factor on split chains (at 
+convergence, Rhat=1).
+
+収束診断: 最大Rhat = 1.0016, 最小 n_eff = 4294
