@@ -1,0 +1,1625 @@
+<title>カメラ剥離トレーナー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: operating console — endoscope field dominant on the left, a narrow instrument rail on the right;
+     pre-brief / run / debrief swap in place. Field is always a dark scope view in both themes. */
+  :root {
+    --bg: #edf1f0; --surface: #fbfcfc; --surface-2: #f2f6f5;
+    --fg: #142120; --muted: #566a67; --line: #d6e0de;
+    --accent: #0f6b63; --accent-fg: #ffffff; --accent-soft: #d4e8e5;
+    --good: #2b8657; --warn: #b5751a; --crit: #bd3b2f; --vessel: #7d3a6c;
+    --shadow: 0 1px 2px rgba(18,40,37,.06), 0 10px 26px rgba(18,40,37,.08);
+    --r: 12px;
+    --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --sans: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    /* scope overlay ink: the field is black in every theme, so these stay constant */
+    --scope-ink: #e8f3f0; --scope-dim: rgba(232,243,240,.62); --scope-accent: #5fd6c8;
+    --scope-warn: #ffc66b; --scope-crit: #ff7a6b; --scope-panel: rgba(4,10,9,.70); --scope-line: rgba(140,220,205,.30);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1211; --surface: #121b1a; --surface-2: #0f1716;
+      --fg: #e4ebe9; --muted: #8fa19d; --line: #233130;
+      --accent: #4cc8bb; --accent-fg: #04201c; --accent-soft: #163029;
+      --good: #4dbd7d; --warn: #e3a74b; --crit: #e66a5d; --vessel: #c77fb6;
+      --shadow: 0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b1211; --surface: #121b1a; --surface-2: #0f1716;
+    --fg: #e4ebe9; --muted: #8fa19d; --line: #233130;
+    --accent: #4cc8bb; --accent-fg: #04201c; --accent-soft: #163029;
+    --good: #4dbd7d; --warn: #e3a74b; --crit: #e66a5d; --vessel: #c77fb6;
+    --shadow: 0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+  .wrap { max-width: 1180px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 22px 44px; }
+
+  header.masthead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 20px; margin-bottom: 18px; }
+  .eyebrow { font-family: var(--mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-family: var(--display); font-weight: 600; font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.15; margin: 4px 0 0; text-wrap: balance; }
+  .sub { color: var(--muted); max-width: 64ch; margin: 6px 0 0; }
+  h2 { font-size: 1.08rem; margin: 0; text-wrap: balance; }
+  h3 { font-size: .78rem; font-family: var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; font-weight: 500; }
+  p { margin: 0; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .pad { padding: clamp(14px, 2.4vw, 22px); }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  .btn { font: 600 .9rem var(--sans); border: 1px solid var(--line); background: var(--surface-2); color: var(--fg); padding: 10px 15px; border-radius: 10px; cursor: pointer; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn.ghost { background: transparent; }
+  .btn:focus-visible, .seg button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; }
+  .seg button { font: 500 .84rem var(--sans); border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 9px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+  .hintline { font-size: .82rem; color: var(--muted); }
+
+  /* ---------- pre-brief ---------- */
+  .pre { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .pre { grid-template-columns: 1fr; } }
+  .concepts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 560px) { .concepts { grid-template-columns: 1fr; } }
+  .concept { border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: var(--surface-2); }
+  .concept b { display: block; font-size: .88rem; margin-bottom: 2px; }
+  .concept span { font-size: .8rem; color: var(--muted); }
+  .ops { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  .ops th, .ops td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ops th { font: 500 .7rem var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .ops td:first-child { font-weight: 600; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
+  summary { cursor: pointer; font-weight: 600; font-size: .88rem; }
+  details[open] summary { margin-bottom: 8px; }
+  code { font-family: var(--mono); font-size: .8em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+  .status { font-size: .82rem; font-family: var(--mono); color: var(--muted); }
+  .status.ok { color: var(--good); } .status.err { color: var(--crit); }
+
+  ol.checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  ol.checklist li { display: grid; grid-template-columns: 1.6em 1fr; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px; font-size: .86rem; }
+  ol.checklist li .ix { font-family: var(--mono); font-size: .74rem; color: var(--muted); }
+  ol.checklist li[data-state="active"] { background: var(--accent-soft); font-weight: 600; }
+  ol.checklist li[data-state="done"] { color: var(--muted); }
+  ol.checklist li[data-state="done"] .ix { color: var(--good); }
+
+  /* ---------- webcam card ---------- */
+  .camcard { display: flex; flex-direction: column; gap: 8px; }
+  .camcard canvas { width: 100%; aspect-ratio: 4 / 3; max-width: 100%; border-radius: 10px; background: #050a09; display: block; }
+  .camcard .camline { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font: .76rem var(--mono); color: var(--muted); }
+  .pose { font: 600 .8rem var(--mono); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); }
+  .pose[data-pose="open"] { color: var(--accent); border-color: var(--accent); }
+  .pose[data-pose="pinch"] { color: var(--warn); border-color: var(--warn); }
+  .pose[data-pose="fist"] { color: var(--vessel); border-color: var(--vessel); }
+
+  /* ---------- run ---------- */
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 330px); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } }
+  .field { position: relative; width: 100%; aspect-ratio: 16 / 10; max-width: 100%; border-radius: var(--r); overflow: hidden; background: #000; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .field canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+  .vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 72% 78% at 50% 50%, transparent 56%, rgba(0,0,0,.55) 82%, #000 100%); }
+  .reticle { position: absolute; left: 50%; top: 50%; border: 1.5px dashed var(--scope-line); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+  .reticle::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--scope-dim); }
+  .arrow { position: absolute; width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 20px solid var(--scope-accent); pointer-events: none; filter: drop-shadow(0 0 6px rgba(95,214,200,.6)); }
+  .hud { position: absolute; display: flex; gap: 6px; flex-wrap: wrap; pointer-events: none; }
+  .hud.tl { left: 10px; top: 10px; max-width: 60%; }
+  .chip-s { font: 500 .7rem var(--mono); letter-spacing: .03em; color: var(--scope-ink); background: var(--scope-panel); border: 1px solid var(--scope-line); border-radius: 999px; padding: 3px 9px; }
+  .vitals { position: absolute; right: 10px; top: 10px; font: .7rem/1.5 var(--mono); color: var(--scope-dim); background: var(--scope-panel); border: 1px solid var(--scope-line); border-radius: 8px; padding: 6px 10px; pointer-events: none; font-variant-numeric: tabular-nums; }
+  .vitals b { color: var(--scope-ink); font-weight: 600; }
+  .warns { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; width: max-content; max-width: 90%; }
+  .warn { font: 600 .78rem var(--sans); color: #1b0a06; background: var(--scope-warn); border-radius: 8px; padding: 4px 11px; }
+  .warn.crit { background: var(--scope-crit); }
+  .zoomgauge { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 8px; height: 46%; background: rgba(232,243,240,.12); border-radius: 4px; pointer-events: none; }
+  .zoomgauge .band { position: absolute; left: -3px; right: -3px; background: rgba(95,214,200,.35); border: 1px solid var(--scope-accent); border-radius: 3px; }
+  .zoomgauge .mark { position: absolute; left: -6px; width: 20px; height: 3px; background: var(--scope-ink); border-radius: 2px; }
+  .zoomgauge .lbl { position: absolute; right: 14px; font: .62rem var(--mono); color: var(--scope-dim); white-space: nowrap; }
+  .zoomgauge .lbl.top { top: -2px; } .zoomgauge .lbl.bot { bottom: -2px; }
+  .ctrls { position: absolute; left: 10px; bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .ctrls button { font: 600 .74rem var(--sans); color: var(--scope-ink); background: var(--scope-panel); border: 1px solid var(--scope-line); border-radius: 8px; padding: 6px 10px; cursor: pointer; touch-action: none; }
+  .ctrls button[aria-pressed="true"] { background: var(--scope-accent); color: #04201c; }
+  .ctrls .cut { background: rgba(255,198,107,.18); border-color: var(--scope-warn); }
+  .scopehint { position: absolute; right: 12px; bottom: 10px; font: .66rem var(--mono); color: var(--scope-dim); pointer-events: none; text-align: right; }
+
+  .rail { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .stepnum { font: 500 .72rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+  .cue { font-size: .9rem; margin-top: 6px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; margin-top: 10px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+  .kv { display: flex; justify-content: space-between; font: .78rem var(--mono); color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- debrief ---------- */
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .metric { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .metric .n { font: 600 1.45rem var(--mono); font-variant-numeric: tabular-nums; }
+  .metric .n small { font-size: .7rem; color: var(--muted); font-weight: 400; margin-left: 3px; }
+  .metric .k { font-size: .76rem; color: var(--muted); }
+  .metric[data-flag="crit"] .n { color: var(--crit); }
+  .metric[data-flag="good"] .n { color: var(--good); }
+  .deb { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .deb { grid-template-columns: 1fr; } }
+  #trace { width: 100%; aspect-ratio: 4 / 3; max-width: 100%; display: block; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .76rem; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .steptimes { display: flex; flex-direction: column; gap: 6px; }
+  .st { display: grid; grid-template-columns: minmax(0, 12.5em) minmax(0, 1fr) 4.2em; gap: 8px; align-items: center; font-size: .8rem; }
+  .st .track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; border: 1px solid var(--line); }
+  .st .track i { display: block; height: 100%; background: var(--accent); }
+  .st .sec { font-family: var(--mono); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .improve { border-left: 3px solid var(--accent); padding: 8px 12px; background: var(--accent-soft); border-radius: 0 10px 10px 0; font-size: .92rem; }
+  .tlx { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 18px; }
+  @media (max-width: 560px) { .tlx { grid-template-columns: 1fr; } }
+  .tlx label { display: flex; justify-content: space-between; font-size: .82rem; }
+  .tlx output { font-family: var(--mono); color: var(--accent); }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  textarea.csv { width: 100%; min-height: 120px; font: .72rem var(--mono); border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--fg); padding: 10px; resize: vertical; }
+  .note { font-size: .8rem; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600&family=Shippori+Mincho+B1:wght@600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">認知負荷理論 × part-task · カメラ操作と剥離</div>
+      <h1>カメラ剥離トレーナー</h1>
+      <p class="sub">内視鏡視野の中心化・拡大と、剥離平面に沿った剥離を、webカメラの手の動きで練習する初学者向け教材です。ブラウザだけで動作します。</p>
+    </div>
+  </header>
+
+  <!-- =============== PRE-BRIEF =============== -->
+  <section id="phase-pre" class="pre">
+    <div class="card pad stack">
+      <div>
+        <div class="stepnum">術前ブリーフ</div>
+        <h2 style="margin-top:4px">この課題で身につけること</h2>
+        <p class="cue">視野を整えてから動く。剥離平面を目で確かめてから切る。前線が端に来たら、止めて視野を直す。この3つを、手順を分けて1つずつ練習します。</p>
+      </div>
+      <div>
+        <h3>事前に覚える3つの手がかり</h3>
+        <div class="concepts">
+          <div class="concept"><b>剥離平面</b><span>白っぽく細かい線維が走る疎性結合組織の層。ここに沿えば出血が少ない。</span></div>
+          <div class="concept"><b>血管</b><span>紫がかった太い隆起。近づいたら速度を落とし、距離を確かめる。</span></div>
+          <div class="concept"><b>前線を中央に</b><span>切る手と視野を動かす手は同時に使わない。止めてから視野を直す。</span></div>
+        </div>
+      </div>
+      <div>
+        <h3>操作方法</h3>
+        <div class="tablewrap">
+          <table class="ops">
+            <thead><tr><th>動作</th><th>webカメラ(手)</th><th>マウス</th></tr></thead>
+            <tbody>
+              <tr><td>器具を動かす</td><td>手を開いて動かす</td><td>マウスを動かす</td></tr>
+              <tr><td>剥離する</td><td>親指と人差し指をつまむ</td><td>左ボタンを押し続ける(Space でも可)</td></tr>
+              <tr><td>視野を動かす</td><td>手を握って動かす(クラッチ)</td><td>右ドラッグ / Shift+ドラッグ</td></tr>
+              <tr><td>拡大・縮小</td><td>握ったまま手をカメラに近づける・離す</td><td>ホイール</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>手順チェックリスト</h3>
+        <ol class="checklist" id="pre-list"></ol>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="card pad stack">
+        <div>
+          <h3>ガイダンス</h3>
+          <div class="seg" role="group" aria-label="ガイダンスの量">
+            <button type="button" id="mode-guided" aria-pressed="true">Guided</button>
+            <button type="button" id="mode-faded" aria-pressed="false">Faded</button>
+            <button type="button" id="mode-assess" aria-pressed="false">Assessment</button>
+          </div>
+          <p class="hintline" id="mode-desc" style="margin-top:6px"></p>
+        </div>
+        <div>
+          <h3>操作方法</h3>
+          <div class="seg" role="group" aria-label="操作方法">
+            <button type="button" id="src-hand" aria-pressed="false">webカメラ(手)</button>
+            <button type="button" id="src-mouse" aria-pressed="true">マウス</button>
+          </div>
+          <p class="status" id="hand-status" style="margin-top:6px">マウスで操作します。</p>
+        </div>
+        <div id="cam-slot-pre"></div>
+        <details>
+          <summary>Blenderで作った術野を使う(任意)</summary>
+          <div class="stack" style="gap:8px">
+            <p class="note">GLB形式で書き出したファイルを読み込みます。剥離線は <code>Path_00</code>, <code>Path_01</code>… という名前のエンプティを順に結んだ線、血管は <code>Vessel_00</code>… のエンプティ(または名前が Vessel で始まるメッシュ)として読み取ります。メートル単位で作ったモデルは自動でセンチメートルに換算します。</p>
+            <input type="file" id="glb-input" accept=".glb,.gltf,model/gltf-binary">
+            <p class="status" id="glb-status">標準の術野を使用中。</p>
+            <div class="row"><button type="button" class="btn ghost" id="glb-reset" hidden>標準の術野に戻す</button></div>
+          </div>
+        </details>
+        <div class="row">
+          <button type="button" class="btn primary" id="start">課題を開始</button>
+          <span class="hintline">所要 約2〜4分</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =============== RUN =============== -->
+  <section id="phase-run" class="app" hidden>
+    <div class="field" id="field">
+      <div class="vignette" aria-hidden="true"></div>
+      <div class="reticle" id="reticle" hidden></div>
+      <div class="arrow" id="arrow" hidden></div>
+      <div class="hud tl"><span class="chip-s" id="chip-step">1 / 6</span><span class="chip-s" id="chip-input">マウス</span><span class="chip-s" id="chip-mode">Guided</span></div>
+      <div class="vitals">HR <b id="v-hr">76</b> · SBP <b id="v-sbp">120</b></div>
+      <div class="warns" id="warns"></div>
+      <div class="zoomgauge" aria-hidden="true"><div class="band" id="zg-band"></div><div class="mark" id="zg-mark"></div><span class="lbl top">寄り</span><span class="lbl bot">引き</span></div>
+      <div class="ctrls" id="ctrls">
+        <button type="button" id="tool-tool" aria-pressed="true">器具</button>
+        <button type="button" id="tool-cam" aria-pressed="false">カメラ</button>
+        <button type="button" id="zoom-out" aria-label="縮小">−</button>
+        <button type="button" id="zoom-in" aria-label="拡大">+</button>
+        <button type="button" class="cut" id="cut-hold">剥離(押し続ける)</button>
+      </div>
+      <div class="scopehint" id="scopehint"></div>
+    </div>
+
+    <aside class="rail">
+      <section class="card pad">
+        <div class="stepnum" id="run-stepnum">ステップ 1 / 6</div>
+        <h2 id="run-title" style="margin-top:3px">—</h2>
+        <p class="cue" id="run-cue">—</p>
+        <div class="bar" aria-hidden="true"><i id="run-bar"></i></div>
+        <div class="kv"><span id="run-kv-l">保持</span><span id="run-kv-r">—</span></div>
+      </section>
+      <section class="card pad">
+        <h3>手順</h3>
+        <ol class="checklist" id="run-list"></ol>
+      </section>
+      <div id="cam-slot-run"></div>
+      <button type="button" class="btn ghost" id="abort">ここで終了してデブリーフへ</button>
+    </aside>
+  </section>
+
+  <!-- =============== DEBRIEF =============== -->
+  <section id="phase-debrief" class="stack" hidden>
+    <div class="card pad stack">
+      <div>
+        <div class="stepnum">術後デブリーフ</div>
+        <h2 style="margin-top:4px" id="d-heading">結果</h2>
+      </div>
+      <div class="metrics" id="d-metrics"></div>
+      <p class="note" id="d-secondary"></p>
+      <p class="improve" id="d-improve"></p>
+    </div>
+    <div class="deb">
+      <div class="card pad">
+        <h3>剥離の軌跡(上から見た図)</h3>
+        <canvas id="trace" width="640" height="480"></canvas>
+        <div class="legend">
+          <span><i style="background:var(--accent)"></i>平面内で剥離</span>
+          <span><i style="background:var(--crit)"></i>平面外</span>
+          <span><i style="background:var(--vessel)"></i>血管</span>
+          <span><i style="background:var(--line)"></i>許容幅 ±3.5 mm</span>
+        </div>
+      </div>
+      <div class="card pad stack">
+        <div>
+          <h3>ステップごとの所要時間</h3>
+          <div class="steptimes" id="d-steps"></div>
+        </div>
+        <div>
+          <h3>主観的負荷(NASA-TLX Raw)</h3>
+          <div class="tlx" id="tlx"></div>
+          <p class="note" style="margin-top:6px">Raw TLX = <b id="tlx-raw">50</b> / 100</p>
+        </div>
+      </div>
+    </div>
+    <div class="card pad stack">
+      <h3>記録(CSV)</h3>
+      <p class="note">時刻(ms)・イベント・10 Hz の軌跡サンプル・集計値・NASA-TLX を1つのCSVにまとめています。</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="csv-save">CSVを保存</button>
+        <button type="button" class="btn" id="csv-copy">CSVをコピー</button>
+        <span class="status" id="csv-status"></span>
+      </div>
+      <details><summary>CSVの中身を見る</summary><textarea class="csv" id="csv-text" readonly></textarea></details>
+      <div class="row"><button type="button" class="btn" id="restart">もう一度(術前ブリーフへ)</button></div>
+    </div>
+  </section>
+
+  <!-- webcam card: moved between pre-brief and run rail -->
+  <div class="card pad camcard" id="camcard" hidden>
+    <canvas id="cam-preview" width="320" height="240" aria-label="webカメラ映像と手の認識結果"></canvas>
+    <div class="camline"><span class="pose" id="pose" data-pose="none">手が見えません</span><span id="cam-fps">— fps</span></div>
+    <p class="note">カメラから40〜60 cm、手のひらをカメラに向け、点線の枠の中で動かしてください。</p>
+    <div class="row"><button type="button" class="btn ghost" id="cam-stop">カメラを停止</button></div>
+  </div>
+  <video id="cam-video" playsinline muted hidden></video>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =====================================================================
+     0. Constants and task definition (deterministic core)
+     ===================================================================== */
+  var $ = function (s) { return document.querySelector(s); };
+  var clamp = function (v, a, b) { return Math.max(a, Math.min(b, v)); };
+
+  var MP_VER = "0.10.14";
+  var MP_BUNDLE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER + "/vision_bundle.mjs";
+  var MP_WASM = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@" + MP_VER + "/wasm";
+  var MP_MODEL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+  var CFG = {
+    tolCm: 0.35, injuryCm: 0.55, warnCm: 1.1,
+    zoomBand: [9.5, 12.5], dMin: 5.5, dMax: 26, d0: 21,
+    tilt: 28 * Math.PI / 180, fov: 50,
+    centerR: 0.2, startZoomR: 0.38, holdS: 0.8,
+    approachCm: 0.6, approachHoldS: 0.4,
+    markerFrac: 0.32, frontAhead: 0.9, frontBehind: 0.45,
+    stepHz: 60, sampleHz: 10, handPanGain: 1.15
+  };
+
+  var STEPS = [
+    { key: "center", title: "視野を中心に合わせる", short: "開始点を中央の円へ",
+      cueHand: "手を握ったまま動かすと視野が動きます。剥離開始点(リング)を中央の円に入れてください。",
+      cueMouse: "右ドラッグ(または Shift+ドラッグ)で術野をつかんで動かします。開始点(リング)を中央の円へ。" },
+    { key: "zoom", title: "拡大を合わせる", short: "目盛りの帯まで寄る",
+      cueHand: "握ったまま手をカメラに近づけると拡大、離すと縮小。右の目盛りの帯まで寄せ、開始点は中央付近に保ちます。",
+      cueMouse: "ホイールで拡大・縮小。右の目盛りの帯まで寄せ、開始点は中央付近に保ちます。" },
+    { key: "approach", title: "器具を開始点へ", short: "先端を開始点に合わせる",
+      cueHand: "手を開くと器具が動きます。器具の先端を開始点に合わせ、少し止めます。",
+      cueMouse: "マウスで器具の先端を開始点に合わせ、少し止めます。" },
+    { key: "cut1", title: "剥離する — 第1区間", short: "層に沿って目標リングまで",
+      cueHand: "親指と人差し指をつまむと剥離。白っぽい疎性結合組織の層に沿って、目標リングまで進めます。",
+      cueMouse: "左ボタンを押している間だけ剥離。白っぽい疎性結合組織の層に沿って、目標リングまで進めます。" },
+    { key: "recenter", title: "視野を再中心化する", short: "前線を中央へ戻す",
+      cueHand: "つまむのを止め、手を握って視野を動かし、剥離前線(目標リング)を中央の円へ戻します。",
+      cueMouse: "剥離を止め、右ドラッグで剥離前線(目標リング)を中央の円へ戻します。" },
+    { key: "cut2", title: "剥離する — 第2区間", short: "終点まで、前線を中央に保つ",
+      cueHand: "終点まで剥離します。前線が画面の端に寄ったら、いったん止めて握り、視野を動かしてから続けます。",
+      cueMouse: "終点まで剥離します。前線が端に寄ったら、いったん止めて右ドラッグで視野を動かしてから続けます。" }
+  ];
+
+  var MODE_DESC = {
+    guided: "剥離線・目標リング・中央の円・方向矢印・警告をすべて表示します。最初はこのモードで。",
+    faded: "剥離線は前線の少し先だけ、矢印なし。手がかりを減らして自分で見つける練習です。",
+    assess: "補助表示なし。手順名だけを示し、結果はデブリーフで返します。評価用。"
+  };
+
+  /* Default anatomy (cm). Tissue lies on y ≈ h(x, z); far side is −z (screen up). */
+  var TW = 56, TH = 44;   // large enough that its edges never show; the periphery curves away into the scope fog
+  function hDefault(x, z) {
+    return 0.32 * Math.sin(0.42 * x + 0.3) * Math.cos(0.36 * z)
+         + 0.16 * Math.sin(0.85 * x + 1.25 * z + 0.7)
+         + 0.09 * Math.sin(1.9 * x - 1.4 * z)
+         - 0.006 * (x * x + z * z);
+  }
+  var DEF_PATH = [[-3.6, 5.2], [-3.2, 3.4], [-2.0, 1.8], [-1.2, 0.2], [-1.4, -1.6], [-0.6, -3.2], [0.8, -4.6], [2.2, -6.2]];
+  // vessel keeps ≥ 1.1 cm clearance from the path: staying inside the ±3.5 mm plane can never injure it
+  var DEF_VESSEL = [[7.6, 17.5], [5.7, 11.6], [4.2, 7.5], [2.3, 3.6], [0.15, 0.9], [-0.05, -1.1], [0.75, -3.0], [2.9, -3.85], [5.5, -4.6], [8.5, -5.0], [17, -5.8]];
+
+  function mulberry32(a) {
+    return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  }
+
+  /* =====================================================================
+     1. State
+     ===================================================================== */
+  var S = {
+    phase: "pre", mode: "guided",
+    step: 0, holdT: 0, stepStartT: 0, stepTimes: [], simT: 0, running: false, finished: false,
+    cam: { target: new THREE.Vector3(), d: CFG.d0 },
+    tip: { p: new THREE.Vector3(), n: new THREE.Vector3(0, 1, 0), valid: false },
+    front: 0, lastMarkS: 0, lastOff: null,
+    m: null, ep: { on: false, offT: 0, countedOff: false }, lastInjT: -99,
+    frontOut: false, prevClutch: false, live: { dPath: Infinity, dVes: Infinity, s: 0 },
+    log: [], samples: [], trace: [], injuries: [], nextSampleT: 0,
+    bloodMl: 0, hr: 76, sbp: 120
+  };
+  function freshMetrics() {
+    return { offPlane: 0, injuries: 0, errSum: 0, errN: 0, frontOutS: 0, camMoves: 0, distSum: 0, distT: 0, earlyActs: 0 };
+  }
+  S.m = freshMetrics();
+
+  var IN = { source: "mouse", toolMode: "tool", cursor: { x: 0.5, y: 0.5 }, activate: false, clutch: false, pan: { x: 0, y: 0 }, zoom: 1, handVisible: false };
+
+  /* =====================================================================
+     2. Three.js scene (visual shell — replaceable by a Blender GLB)
+     ===================================================================== */
+  var field = $("#field");
+  var renderer, scene, cam, scopeLight, raycaster = new THREE.Raycaster();
+  var defaultGroup, glbGroup = null, vesselMats = [];
+  var pathLine, startRing, markerRing, endRing;
+  var inst, jawPivA, jawPivB, glow;
+  var cutMarks, offMarks, cutCount = 0, offCount = 0, bleeds = [];
+  var dummy = new THREE.Object3D();
+  var Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
+  var webglOk = false;
+
+  var ANAT = { source: "default", curve: null, samples: [], N: 480, L: 1, sA: 0.3, start: new THREE.Vector3(), markerA: new THREE.Vector3(), end: new THREE.Vector3(), vessel: [], vesselCloud: false, tissue: [], bounds: { minX: -12, maxX: 12, minZ: -9, maxZ: 9 } };
+
+  function initScene() {
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+    } catch (e) {
+      field.insertAdjacentHTML("afterbegin", '<p style="position:absolute;inset:0;margin:0;padding:24px;color:#e8f3f0;font-family:monospace">3D表示(WebGL)を初期化できませんでした。Chrome または Edge の最新版でお試しください。</p>');
+      return;
+    }
+    webglOk = true;
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    field.insertBefore(renderer.domElement, field.firstChild);
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+    scene.fog = new THREE.Fog(0x000000, 18, 60);
+    cam = new THREE.PerspectiveCamera(CFG.fov, 16 / 10, 0.05, 200);
+
+    scene.add(new THREE.HemisphereLight(0xffe7e1, 0x1c0606, 0.42));
+    scopeLight = new THREE.SpotLight(0xfff3e8, 1.9, 70, 0.62, 0.55, 1.1);
+    scene.add(scopeLight); scene.add(scopeLight.target);
+
+    defaultGroup = new THREE.Group(); scene.add(defaultGroup);
+    buildDefaultTissue();
+
+    // guidance objects
+    var ringGeo = new THREE.TorusGeometry(0.42, 0.04, 8, 48);
+    function ring(color) {
+      var m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9, depthTest: false }));
+      m.renderOrder = 10; m.visible = false; scene.add(m); return m;
+    }
+    startRing = ring(0x5fd6c8); markerRing = ring(0xffc66b); endRing = ring(0x5fd6c8);
+    pathLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0x5fd6c8, dashSize: 0.28, gapSize: 0.18, transparent: true, opacity: 0.85, depthTest: false }));
+    pathLine.renderOrder = 9; pathLine.visible = false; scene.add(pathLine);
+
+    buildInstrument();
+
+    cutMarks = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 10, 8), new THREE.MeshStandardMaterial({ color: 0xe9dcb4, roughness: 0.5, emissive: 0x0c0a05 }), 900);
+    cutMarks.count = 0; scene.add(cutMarks);
+    offMarks = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0x6e0f16, roughness: 0.3, emissive: 0x1a0204 }), 600);
+    offMarks.count = 0; scene.add(offMarks);
+
+    setAnatomyDefault();
+    if (window.ResizeObserver) new ResizeObserver(resize).observe(field);
+    window.addEventListener("resize", resize);
+    resize();
+  }
+
+  function resize() {
+    if (!webglOk) return;
+    var w = field.clientWidth || 640, h = field.clientHeight || 400;
+    renderer.setSize(w, h, false);
+    cam.aspect = w / h; cam.updateProjectionMatrix();
+  }
+
+  function tissueTexture() {
+    var cw = 2048, ch = Math.round(2048 * TH / TW);
+    var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+    var g = c.getContext("2d"), rnd = mulberry32(7);
+    var X = function (x) { return (x + TW / 2) / TW * cw; }, Zc = function (z) { return (z + TH / 2) / TH * ch; }, px = cw / TW;
+    g.fillStyle = "#b45a54"; g.fillRect(0, 0, cw, ch);
+    var i, k;
+    for (i = 0; i < 300; i++) {                      // tonal patches
+      var cx = rnd() * cw, cy = rnd() * ch, r = (0.8 + rnd() * 3.2) * px;
+      var gr = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+      var col = rnd() < 0.5 ? "201,122,108" : "150,64,62";
+      gr.addColorStop(0, "rgba(" + col + ",.55)"); gr.addColorStop(1, "rgba(" + col + ",0)");
+      g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    }
+    for (i = 0; i < 110; i++) {                      // fat islands
+      var fx = rnd() * cw, fy = rnd() * ch, fr = (0.5 + rnd() * 1.3) * px;
+      var gf = g.createRadialGradient(fx, fy, 0, fx, fy, fr);
+      gf.addColorStop(0, "rgba(226,190,96,.62)"); gf.addColorStop(1, "rgba(226,190,96,0)");
+      g.fillStyle = gf; g.beginPath(); g.ellipse(fx, fy, fr, fr * (0.6 + rnd() * 0.5), rnd() * 3, 0, Math.PI * 2); g.fill();
+    }
+    g.lineCap = "round";
+    for (i = 0; i < 4000; i++) {                     // fibres
+      var x0 = rnd() * cw, y0 = rnd() * ch, a = 0.5 + rnd() * 0.6, len = (0.3 + rnd() * 0.9) * px;
+      g.strokeStyle = "rgba(255,226,214," + (0.05 + rnd() * 0.08).toFixed(3) + ")"; g.lineWidth = 0.6 + rnd() * 1.1;
+      g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + Math.cos(a) * len * 0.5 + (rnd() - 0.5) * 6, y0 + Math.sin(a) * len * 0.5, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len); g.stroke();
+    }
+    for (i = 0; i < 70; i++) {                       // small vessels (branching)
+      var vx = rnd() * cw, vy = rnd() * ch, ang = rnd() * 6.28, w = 2.6;
+      for (k = 0; k < 9; k++) {
+        var nx = vx + Math.cos(ang) * 0.55 * px, ny = vy + Math.sin(ang) * 0.55 * px;
+        g.strokeStyle = "rgba(96,12,26,.5)"; g.lineWidth = w; g.beginPath(); g.moveTo(vx, vy); g.lineTo(nx, ny); g.stroke();
+        vx = nx; vy = ny; ang += (rnd() - 0.5) * 0.9; w = Math.max(0.7, w * 0.86);
+      }
+    }
+    // avascular plane: a pale band with fine crossing fibres along the dissection line
+    var curve = new THREE.CatmullRomCurve3(DEF_PATH.map(function (p) { return new THREE.Vector3(p[0], 0, p[1]); }), false, "centripetal");
+    var pts = curve.getSpacedPoints(300);
+    g.strokeStyle = "rgba(243,229,204,.30)"; g.lineWidth = 0.62 * px; g.beginPath();
+    pts.forEach(function (p, j) { j ? g.lineTo(X(p.x), Zc(p.z)) : g.moveTo(X(p.x), Zc(p.z)); }); g.stroke();
+    g.strokeStyle = "rgba(255,247,232,.32)"; g.lineWidth = 0.9;
+    for (i = 0; i < pts.length; i += 2) {
+      var q = pts[i], qa = rnd() * 6.28, ql = (0.12 + rnd() * 0.22) * px;
+      g.beginPath(); g.moveTo(X(q.x) - Math.cos(qa) * ql, Zc(q.z) - Math.sin(qa) * ql); g.lineTo(X(q.x) + Math.cos(qa) * ql, Zc(q.z) + Math.sin(qa) * ql); g.stroke();
+    }
+    // shadow under the main vessel
+    var vc = new THREE.CatmullRomCurve3(DEF_VESSEL.map(function (p) { return new THREE.Vector3(p[0], 0, p[1]); }), false, "centripetal").getSpacedPoints(200);
+    g.strokeStyle = "rgba(60,8,30,.38)"; g.lineWidth = 0.95 * px; g.beginPath();
+    vc.forEach(function (p, j) { j ? g.lineTo(X(p.x), Zc(p.z)) : g.moveTo(X(p.x), Zc(p.z)); }); g.stroke();
+    for (i = 0; i < 40000; i++) {                    // speckle
+      g.fillStyle = rnd() < 0.5 ? "rgba(255,240,232,.05)" : "rgba(60,10,12,.06)";
+      g.fillRect(rnd() * cw, rnd() * ch, 1.4, 1.4);
+    }
+    var tex = new THREE.CanvasTexture(c);
+    tex.encoding = THREE.sRGBEncoding;
+    tex.anisotropy = 4;
+    return tex;
+  }
+
+  function buildDefaultTissue() {
+    var geo = new THREE.PlaneGeometry(TW, TH, 200, 160);
+    geo.rotateX(-Math.PI / 2);
+    var pos = geo.attributes.position;
+    for (var i = 0; i < pos.count; i++) pos.setY(i, hDefault(pos.getX(i), pos.getZ(i)));
+    geo.computeVertexNormals();
+    var tex = tissueTexture();
+    var mat = new THREE.MeshStandardMaterial({ map: tex, bumpMap: tex, bumpScale: 0.018, roughness: 0.46, metalness: 0 });
+    var tissue = new THREE.Mesh(geo, mat); tissue.name = "Tissue";
+    defaultGroup.add(tissue);
+
+    // the vessel centreline hugs the surface (0.1 cm up), so the tube and the distance test agree
+    var vline = surfaceResample(DEF_VESSEL.map(function (p) { return new THREE.Vector3(p[0], 0, p[1]); }), 360, 0.1, 4).pts;
+    var vmat = new THREE.MeshStandardMaterial({ color: 0x6a1d36, roughness: 0.3, emissive: 0x000000 });
+    var tube = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(vline), 360, 0.28, 14, false), vmat);
+    tube.name = "VesselTube";
+    defaultGroup.add(tube);
+    defaultGroup.userData.tissue = [tissue];
+    defaultGroup.userData.vesselLine = vline;
+    defaultGroup.userData.vesselMats = [vmat];
+  }
+
+  function buildInstrument() {
+    inst = new THREE.Group();
+    var shaftMat = new THREE.MeshStandardMaterial({ color: 0x24282c, metalness: 0.55, roughness: 0.38 });
+    var jawMat = new THREE.MeshStandardMaterial({ color: 0xc8cdd2, metalness: 0.9, roughness: 0.22 });
+    var shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.21, 16, 20), shaftMat);
+    shaft.position.y = 1.1 + 8; inst.add(shaft);
+    var wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.21, 0.4, 16), jawMat);
+    wrist.position.y = 1.3; inst.add(wrist);
+    var jawGeo = new THREE.BoxGeometry(0.12, 1.05, 0.09);
+    jawGeo.translate(0, -0.52, 0);
+    jawPivA = new THREE.Group(); jawPivB = new THREE.Group();
+    jawPivA.position.y = jawPivB.position.y = 1.08;
+    jawPivA.add(new THREE.Mesh(jawGeo, jawMat)); jawPivB.add(new THREE.Mesh(jawGeo, jawMat));
+    inst.add(jawPivA); inst.add(jawPivB);
+    glow = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff1b0, transparent: true, opacity: 0, depthWrite: false }));
+    inst.add(glow);
+    inst.visible = false;
+    scene.add(inst);
+  }
+
+  /* ---- anatomy (path / vessel / tissue) ---- */
+  /* A spline through control points drifts above/below the tissue between them, so what the
+     learner traces on screen would not be where the ray lands. Sample the spline densely,
+     drop every sample onto the surface, then re-space by true 3D arc length. */
+  function surfaceResample(ctrl, n, yOff, densityFactor) {
+    var c = new THREE.CatmullRomCurve3(ctrl, false, "centripetal");
+    var dense = c.getSpacedPoints(Math.max(n, Math.round(n * (densityFactor || 1)))), pts = [], cum = [0], i;
+    for (i = 0; i < dense.length; i++) {
+      var p = dense[i], s = surfaceAt(p.x, p.z), q = s ? s.point.clone() : p.clone();
+      q.y += yOff || 0; pts.push(q);
+      if (i) cum.push(cum[i - 1] + q.distanceTo(pts[i - 1]));
+    }
+    var L = cum[cum.length - 1], out = [], j = 0;
+    for (var k = 0; k <= n; k++) {
+      var target = L * k / n;
+      while (j < cum.length - 2 && cum[j + 1] < target) j++;
+      var seg = cum[j + 1] - cum[j], t = seg > 0 ? (target - cum[j]) / seg : 0;
+      out.push(new THREE.Vector3().lerpVectors(pts[j], pts[j + 1], clamp(t, 0, 1)));
+    }
+    return { pts: out, L: L };
+  }
+  function setPath(points3) {
+    var rs = surfaceResample(points3, ANAT.N, 0, ANAT.source === "default" ? 4 : 0.7);
+    ANAT.L = rs.L;
+    ANAT.samples = rs.pts;
+    ANAT.sA = ANAT.L * CFG.markerFrac;
+    ANAT.start.copy(ANAT.samples[0]); ANAT.end.copy(ANAT.samples[ANAT.N]);
+    ANAT.markerA.copy(pathAt(ANAT.sA));
+    var pts = ANAT.samples.map(function (p) { return new THREE.Vector3(p.x, p.y + 0.06, p.z); });
+    pathLine.geometry.dispose();
+    pathLine.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    pathLine.computeLineDistances();
+    placeRing(startRing, ANAT.start); placeRing(markerRing, ANAT.markerA); placeRing(endRing, ANAT.end);
+  }
+  function placeRing(r, p) {
+    var hit = surfaceAt(p.x, p.z);
+    var n = hit ? hit.normal : Y;
+    r.position.copy(p).addScaledVector(n, 0.05);
+    r.quaternion.setFromUnitVectors(Z, n);
+  }
+
+  function setAnatomyDefault() {
+    if (glbGroup) { scene.remove(glbGroup); glbGroup = null; }
+    defaultGroup.visible = true;
+    ANAT.source = "default";
+    ANAT.tissue = defaultGroup.userData.tissue;
+    ANAT.bounds = { minX: -12, maxX: 12, minZ: -9, maxZ: 9 };
+    ANAT.vessel = defaultGroup.userData.vesselLine;
+    ANAT.vesselCloud = false;
+    vesselMats = defaultGroup.userData.vesselMats;
+    setPath(DEF_PATH.map(function (p) { return new THREE.Vector3(p[0], hDefault(p[0], p[1]), p[1]); }));
+  }
+
+  /* ---- geometry queries ---- */
+  function pathAt(s) {
+    var f = clamp(s / ANAT.L, 0, 1) * ANAT.N, i = Math.min(ANAT.N - 1, Math.floor(f)), t = f - i;
+    return new THREE.Vector3().lerpVectors(ANAT.samples[i], ANAT.samples[i + 1], t);
+  }
+  var _ab = new THREE.Vector3(), _ap = new THREE.Vector3();
+  function segDist(p, a, b) {
+    _ab.subVectors(b, a); _ap.subVectors(p, a);
+    var L2 = _ab.lengthSq(), t = L2 > 0 ? clamp(_ap.dot(_ab) / L2, 0, 1) : 0;
+    var dx = a.x + _ab.x * t - p.x, dy = a.y + _ab.y * t - p.y, dz = a.z + _ab.z * t - p.z;
+    return { d: Math.sqrt(dx * dx + dy * dy + dz * dz), t: t };
+  }
+  function nearestOnPath(p) {
+    var sm = ANAT.samples, best = 0, bd = Infinity;
+    for (var i = 0; i <= ANAT.N; i++) { var d = sm[i].distanceToSquared(p); if (d < bd) { bd = d; best = i; } }
+    var segL = ANAT.L / ANAT.N, res = { d: Math.sqrt(bd), s: best * segL };
+    if (best > 0) { var r1 = segDist(p, sm[best - 1], sm[best]); if (r1.d < res.d) res = { d: r1.d, s: (best - 1 + r1.t) * segL }; }
+    if (best < ANAT.N) { var r2 = segDist(p, sm[best], sm[best + 1]); if (r2.d < res.d) res = { d: r2.d, s: (best + r2.t) * segL }; }
+    return res;
+  }
+  function vesselDist(p) {
+    var v = ANAT.vessel, best = Infinity, i;
+    if (!v.length) return Infinity;
+    if (ANAT.vesselCloud) { for (i = 0; i < v.length; i++) best = Math.min(best, v[i].distanceTo(p)); return best; }
+    for (i = 1; i < v.length; i++) best = Math.min(best, segDist(p, v[i - 1], v[i]).d);
+    return best;
+  }
+
+  var _down = new THREE.Vector3(0, -1, 0);
+  function surfaceAt(x, z) {
+    if (ANAT.source === "default") {
+      if (Math.abs(x) > TW / 2 || Math.abs(z) > TH / 2) return null;
+      var e = 0.02, hx = (hDefault(x + e, z) - hDefault(x - e, z)) / (2 * e), hz = (hDefault(x, z + e) - hDefault(x, z - e)) / (2 * e);
+      return { point: new THREE.Vector3(x, hDefault(x, z), z), normal: new THREE.Vector3(-hx, 1, -hz).normalize() };
+    }
+    raycaster.set(new THREE.Vector3(x, 500, z), _down);
+    var hits = raycaster.intersectObjects(ANAT.tissue, true);
+    if (!hits.length) return null;
+    return { point: hits[0].point.clone(), normal: hitNormal(hits[0]) };
+  }
+  function hitNormal(h) {
+    if (!h.face) return Y.clone();
+    return h.face.normal.clone().transformDirection(h.object.matrixWorld).normalize();
+  }
+  /* screen (0..1) → tissue point. Default anatomy uses an analytic height-field march (fast, exact). */
+  function raycastScreen(u, v) {
+    if (!webglOk) return null;
+    raycaster.setFromCamera({ x: u * 2 - 1, y: -(v * 2 - 1) }, cam);
+    var o = raycaster.ray.origin, d = raycaster.ray.direction;
+    if (ANAT.source === "default") {
+      var f = function (t) { return o.y + d.y * t - hDefault(o.x + d.x * t, o.z + d.z * t); };
+      var t0 = 0.05, f0 = f(t0), t1;
+      for (t1 = t0 + 0.12; t1 < 120; t1 += 0.12) {
+        var f1 = f(t1);
+        if (f0 > 0 && f1 <= 0) {
+          var a = t1 - 0.12, b = t1;
+          for (var k = 0; k < 22; k++) { var mid = (a + b) / 2; if (f(mid) > 0) a = mid; else b = mid; }
+          var x = o.x + d.x * b, z = o.z + d.z * b;
+          return surfaceAt(x, z);
+        }
+        f0 = f1;
+      }
+      return null;
+    }
+    var hits = raycaster.intersectObjects(ANAT.tissue, true);
+    return hits.length ? { point: hits[0].point.clone(), normal: hitNormal(hits[0]) } : null;
+  }
+
+  /* ---- camera ---- */
+  function applyCamera() {
+    if (!webglOk) return;
+    var t = S.cam.target, d = S.cam.d;
+    var s = surfaceAt(t.x, t.z); if (s) t.y = s.point.y;
+    cam.position.set(t.x, t.y + Math.cos(CFG.tilt) * d, t.z + Math.sin(CFG.tilt) * d);
+    cam.lookAt(t.x, t.y, t.z);
+    cam.updateMatrixWorld();
+    scopeLight.position.copy(cam.position);
+    scopeLight.target.position.set(t.x, t.y, t.z); scopeLight.target.updateMatrixWorld();
+    scene.fog.near = d * 0.9; scene.fog.far = d * 2.9;
+  }
+  function clampTarget() {
+    var b = ANAT.bounds, t = S.cam.target;
+    t.x = clamp(t.x, b.minX, b.maxX); t.z = clamp(t.z, b.minZ, b.maxZ);
+  }
+  function setDist(d) { S.cam.d = clamp(d, CFG.dMin, CFG.dMax); }
+  /* drag-the-scene panning from screen-fraction deltas (dx right+, dy down+) */
+  var _r = new THREE.Vector3(), _f = new THREE.Vector3();
+  function panByScreen(dx, dy, gain) {
+    _r.set(1, 0, 0).applyQuaternion(cam.quaternion); _r.y = 0; _r.normalize();
+    cam.getWorldDirection(_f); _f.y = 0; _f.normalize();
+    var k = S.cam.d * (gain || 1);
+    S.cam.target.addScaledVector(_r, -dx * k).addScaledVector(_f, dy * k);
+    clampTarget(); applyCamera();
+  }
+  function resetCamera() {
+    S.cam.target.set(ANAT.start.x + 4.5, ANAT.start.y, ANAT.start.z + 3.5);
+    clampTarget(); setDist(CFG.d0); applyCamera();
+  }
+  var _pv = new THREE.Vector3();
+  function projectNDC(p) {
+    _pv.copy(p).project(cam);
+    var inFront = _pv.z < 1 && _pv.z > -1;
+    return { x: _pv.x, y: _pv.y, inFront: inFront };
+  }
+  function centerDist(p) {           // distance from screen centre in units of half-height
+    var pr = projectNDC(p);
+    if (!pr.inFront) return 99;
+    return Math.hypot(pr.x * cam.aspect, pr.y);
+  }
+
+  /* =====================================================================
+     3. Input — every source writes the same IN record (mouse now, hand via MediaPipe)
+     ===================================================================== */
+  var mouse = { panning: false, grab: null, lastX: 0, lastY: 0 };
+  function fieldUV(e) { var r = field.getBoundingClientRect(); return { u: (e.clientX - r.left) / r.width, v: (e.clientY - r.top) / r.height, h: r.height }; }
+
+  function bindMouse() {
+    var el = renderer.domElement;
+    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    el.addEventListener("pointerdown", function (e) {
+      if (IN.source !== "mouse" || S.phase !== "run") return;
+      el.setPointerCapture(e.pointerId);
+      var q = fieldUV(e); IN.cursor.x = q.u; IN.cursor.y = q.v;
+      mouse.lastX = e.clientX; mouse.lastY = e.clientY;
+      var camGesture = e.button === 2 || e.button === 1 || e.shiftKey || IN.toolMode === "camera";
+      if (camGesture) {
+        mouse.panning = true; IN.clutch = true;
+        var hit = raycastScreen(q.u, q.v); mouse.grab = hit ? hit.point : null;
+      } else if (e.button === 0 && e.pointerType !== "touch") {
+        IN.activate = true;
+      }
+      e.preventDefault();
+    });
+    el.addEventListener("pointermove", function (e) {
+      if (IN.source !== "mouse") return;
+      var q = fieldUV(e);
+      if (mouse.panning) {
+        var hit = mouse.grab ? raycastScreen(q.u, q.v) : null;
+        if (hit) {
+          S.cam.target.x += mouse.grab.x - hit.point.x; S.cam.target.z += mouse.grab.z - hit.point.z;
+          clampTarget(); applyCamera();
+        } else {
+          panByScreen((e.clientX - mouse.lastX) / q.h, (e.clientY - mouse.lastY) / q.h, 1.0);
+        }
+      } else { IN.cursor.x = q.u; IN.cursor.y = q.v; }
+      mouse.lastX = e.clientX; mouse.lastY = e.clientY;
+    });
+    var end = function () { if (mouse.panning) { mouse.panning = false; mouse.grab = null; IN.clutch = false; } if (!cutHeld) IN.activate = false; };
+    el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end);
+    el.addEventListener("wheel", function (e) {
+      if (IN.source !== "mouse" || S.phase !== "run") return;
+      e.preventDefault(); setDist(S.cam.d * Math.exp(e.deltaY * 0.0015)); applyCamera();
+    }, { passive: false });
+
+    // on-screen controls (mouse / touch)
+    $("#tool-tool").onclick = function () { setToolMode("tool"); };
+    $("#tool-cam").onclick = function () { setToolMode("camera"); };
+    $("#zoom-in").onclick = function () { setDist(S.cam.d / 1.15); applyCamera(); };
+    $("#zoom-out").onclick = function () { setDist(S.cam.d * 1.15); applyCamera(); };
+    var cut = $("#cut-hold");
+    cut.addEventListener("pointerdown", function (e) { if (IN.source === "mouse") { cutHeld = true; IN.activate = true; cut.setPointerCapture(e.pointerId); e.preventDefault(); } });
+    var cutEnd = function () { cutHeld = false; IN.activate = false; };
+    cut.addEventListener("pointerup", cutEnd); cut.addEventListener("pointercancel", cutEnd); cut.addEventListener("lostpointercapture", cutEnd);
+    window.addEventListener("keydown", function (e) {
+      if (e.code === "Space" && S.phase === "run" && IN.source === "mouse" && !/INPUT|TEXTAREA|BUTTON|SUMMARY/.test(document.activeElement && document.activeElement.tagName)) { IN.activate = true; e.preventDefault(); }
+    });
+    window.addEventListener("keyup", function (e) { if (e.code === "Space" && IN.source === "mouse" && !cutHeld) IN.activate = false; });
+  }
+  var cutHeld = false;
+  function setToolMode(m) {
+    IN.toolMode = m;
+    $("#tool-tool").setAttribute("aria-pressed", String(m === "tool"));
+    $("#tool-cam").setAttribute("aria-pressed", String(m === "camera"));
+  }
+
+  /* ---- hand tracking (MediaPipe Hand Landmarker) ---- */
+  function OneEuro(minCutoff, beta, dCutoff) { this.mc = minCutoff; this.b = beta; this.dc = dCutoff; this.x = null; }
+  OneEuro.prototype.reset = function () { this.x = null; };
+  OneEuro.prototype.alpha = function (c, dt) { var tau = 1 / (2 * Math.PI * c); return 1 / (1 + tau / dt); };
+  OneEuro.prototype.filter = function (x, tMs) {
+    if (this.x === null) { this.x = x; this.dx = 0; this.t = tMs; return x; }
+    var dt = Math.max(0.001, (tMs - this.t) / 1000); this.t = tMs;
+    var ad = this.alpha(this.dc, dt), dx = ad * ((x - this.x) / dt) + (1 - ad) * this.dx;
+    var a = this.alpha(this.mc + this.b * Math.abs(dx), dt);
+    this.x = a * x + (1 - a) * this.x; this.dx = dx; return this.x;
+  };
+
+  /* Pure gesture classifier on the 21 MediaPipe hand landmarks. ar = image width / height.
+     open: instrument hover · pinch (thumb–index): dissect · fist (all four fingers curled): camera clutch */
+  function classifyHand(lm, ar, pinchWasOn) {
+    var P = function (i) { return { x: lm[i].x * ar, y: lm[i].y }; };
+    var d = function (a, b) { var A = P(a), B = P(b); return Math.hypot(A.x - B.x, A.y - B.y); };
+    var scale = (d(0, 5) + d(0, 9) + d(0, 17)) / 3 || 1e-6;
+    var curled = function (tip, pip) { return d(tip, 0) < d(pip, 0); };
+    var curls = [curled(8, 6), curled(12, 10), curled(16, 14), curled(20, 18)];
+    var fist = curls[0] && curls[1] && curls[2] && curls[3];
+    var ratio = d(4, 8) / scale;
+    var pinch = !fist && (pinchWasOn ? ratio < 0.40 : ratio < 0.26);
+    var pi = [0, 5, 9, 13, 17], px = 0, py = 0;
+    for (var k = 0; k < pi.length; k++) { px += lm[pi[k]].x; py += lm[pi[k]].y; }
+    return {
+      pose: fist ? "fist" : (pinch ? "pinch" : "open"), ratio: ratio, scale: scale, curls: curls,
+      palm: { x: 1 - px / pi.length, y: py / pi.length },                       // mirrored (selfie view)
+      point: { x: 1 - (lm[4].x + lm[8].x) / 2, y: (lm[4].y + lm[8].y) / 2 }
+    };
+  }
+  var ACTIVE = { x0: 0.16, x1: 0.84, y0: 0.14, y1: 0.78 };   // part of the camera image mapped to the whole field
+
+  var Hand = {
+    ready: false, loading: false, lm: null, stream: null, delegate: "", lastVT: -1, frames: 0, fps: 0, fpsN: 0, fpsT: 0,
+    pose: "none", cand: "none", candN: 0, pinchOn: false, prevPalm: null, prevScale: null,
+    fx: new OneEuro(1.4, 0.6, 1.0), fy: new OneEuro(1.4, 0.6, 1.0), fpx: new OneEuro(1.2, 0.3, 1.0), fpy: new OneEuro(1.2, 0.3, 1.0), fs: new OneEuro(1.0, 0.2, 1.0)
+  };
+  var video = $("#cam-video"), prev = $("#cam-preview"), pctx = prev.getContext("2d");
+
+  function setHandStatus(text, cls) { var el = $("#hand-status"); el.textContent = text; el.className = "status" + (cls ? " " + cls : ""); }
+
+  function startHand() {
+    if (Hand.ready || Hand.loading) return Promise.resolve(Hand.ready);
+    Hand.loading = true; updateStartButton();
+    setHandStatus("カメラを起動しています…");
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.resolve(failHand("このブラウザではカメラを使えません。Chrome または Edge で開いてください。"));
+    }
+    return navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, audio: false })
+      .then(function (stream) {
+        Hand.stream = stream; video.srcObject = stream; video.muted = true;
+        return video.play();
+      }, function (e) {
+        var inFrame = false; try { inFrame = window.top !== window.self; } catch (x) { inFrame = true; }
+        var name = e && e.name;
+        var msg = name === "NotFoundError" ? "カメラが見つかりません。webカメラの接続を確認してください。"
+          : (name === "NotAllowedError" || name === "SecurityError")
+            ? (inFrame ? "このプレビュー画面ではカメラを使えません。ダウンロードしたHTMLファイルを Chrome / Edge で開くと、webカメラで操作できます。今はマウスで操作できます。"
+                       : "カメラの使用が許可されませんでした。アドレスバー左のアイコンからカメラを「許可」にして、もう一度お試しください。")
+          : "カメラを起動できませんでした(" + (name || "error") + ")。";
+        throw { handled: true, msg: msg };
+      })
+      .then(function () {
+        $("#camcard").hidden = false;
+        setHandStatus("手の認識モデルを読み込んでいます…(初回は10秒ほどかかることがあります)");
+        return import(MP_BUNDLE);
+      })
+      .then(function (mp) {
+        return mp.FilesetResolver.forVisionTasks(MP_WASM).then(function (fileset) {
+          var opts = function (delegate) {
+            return { baseOptions: { modelAssetPath: MP_MODEL, delegate: delegate }, runningMode: "VIDEO", numHands: 1,
+                     minHandDetectionConfidence: 0.6, minHandPresenceConfidence: 0.6, minTrackingConfidence: 0.5 };
+          };
+          return mp.HandLandmarker.createFromOptions(fileset, opts("GPU")).then(function (lm) { Hand.delegate = "GPU"; return lm; },
+            function () { return mp.HandLandmarker.createFromOptions(fileset, opts("CPU")).then(function (lm) { Hand.delegate = "CPU"; return lm; }); });
+        });
+      })
+      .then(function (lm) {
+        Hand.lm = lm; Hand.ready = true; Hand.loading = false;
+        setHandStatus("手を認識できます(" + Hand.delegate + ")。プレビューで手の骨格が表示されるか確かめてください。", "ok");
+        updateStartButton();
+        return true;
+      })
+      .catch(function (e) {
+        stopStream();
+        return failHand(e && e.handled ? e.msg : "手の認識モデルを読み込めませんでした。インターネット接続を確認してください。(" + ((e && e.message) || e) + ")");
+      });
+  }
+  function failHand(msg) {
+    Hand.loading = false; Hand.ready = false;
+    setHandStatus(msg, "err");
+    selectSource("mouse", true);
+    return false;
+  }
+  function stopStream() {
+    if (Hand.stream) Hand.stream.getTracks().forEach(function (t) { t.stop(); });
+    Hand.stream = null; video.srcObject = null; $("#camcard").hidden = true;
+  }
+  function stopHand() {
+    stopStream(); Hand.ready = false; Hand.loading = false;
+    if (Hand.lm && Hand.lm.close) { try { Hand.lm.close(); } catch (e) {} }
+    Hand.lm = null; resetHandInput();
+  }
+  function resetHandInput() {
+    IN.activate = false; IN.clutch = false; IN.handVisible = false;
+    Hand.prevPalm = null; Hand.pose = "none"; Hand.cand = "none"; Hand.candN = 0; Hand.pinchOn = false;
+  }
+
+  var HAND_EDGES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+  var POSE_LABEL = { open: "器具を動かす", pinch: "剥離中(つまむ)", fist: "視野を動かす(握る)", none: "手が見えません" };
+
+  function pollHand() {
+    if (!Hand.ready || video.readyState < 2 || video.currentTime === Hand.lastVT) return;
+    Hand.lastVT = video.currentTime;
+    var t = performance.now(), res;
+    try { res = Hand.lm.detectForVideo(video, t); } catch (e) { return; }
+    Hand.frames++; Hand.fpsN++;
+    if (t - Hand.fpsT > 1000) { Hand.fps = Hand.fpsN * 1000 / (t - Hand.fpsT); Hand.fpsN = 0; Hand.fpsT = t; $("#cam-fps").textContent = Hand.fps.toFixed(0) + " fps · " + Hand.delegate; }
+    var ar = (video.videoWidth / video.videoHeight) || 4 / 3;
+    var lms = res && res.landmarks && res.landmarks[0];
+    drawPreview(lms);
+    if (!lms) {
+      if (IN.handVisible && S.phase === "run") logEv("hand_lost");
+      resetHandInput(); setPose("none"); return;
+    }
+    if (!IN.handVisible && S.phase === "run") logEv("hand_found");
+    IN.handVisible = true;
+    var g = classifyHand(lms, ar, Hand.pinchOn);
+    if (g.pose === Hand.cand) Hand.candN++; else { Hand.cand = g.pose; Hand.candN = 1; }
+    if (Hand.candN >= 2 && Hand.pose !== Hand.cand) Hand.pose = Hand.cand;
+    var pose = Hand.pose;
+    if (pose !== "fist") {
+      var u = clamp((g.point.x - ACTIVE.x0) / (ACTIVE.x1 - ACTIVE.x0), 0, 1), v = clamp((g.point.y - ACTIVE.y0) / (ACTIVE.y1 - ACTIVE.y0), 0, 1);
+      IN.cursor.x = Hand.fx.filter(u, t); IN.cursor.y = Hand.fy.filter(v, t);
+      Hand.prevPalm = null; Hand.fs.reset(); Hand.fpx.reset(); Hand.fpy.reset();
+    } else {
+      var px = Hand.fpx.filter(g.palm.x, t), py = Hand.fpy.filter(g.palm.y, t), sc = Hand.fs.filter(g.scale, t);
+      if (Hand.prevPalm) {
+        IN.pan.x += px - Hand.prevPalm.x; IN.pan.y += py - Hand.prevPalm.y;
+        var r = sc / Hand.prevScale;
+        if (Math.abs(r - 1) > 0.003) IN.zoom *= Math.pow(r, 2.2);
+      }
+      Hand.prevPalm = { x: px, y: py }; Hand.prevScale = sc;
+    }
+    IN.clutch = pose === "fist";
+    IN.activate = pose === "pinch";
+    Hand.pinchOn = pose === "pinch";
+    setPose(pose);
+  }
+  function setPose(p) {
+    var el = $("#pose"); if (el.dataset.pose === p) return;
+    el.dataset.pose = p; el.textContent = POSE_LABEL[p] || p;
+  }
+  function drawPreview(lms) {
+    if ($("#camcard").hidden) return;
+    var w = prev.width, h = prev.height;
+    pctx.save(); pctx.translate(w, 0); pctx.scale(-1, 1); pctx.drawImage(video, 0, 0, w, h); pctx.restore();
+    pctx.fillStyle = "rgba(0,0,0,.28)"; pctx.fillRect(0, 0, w, h);
+    pctx.setLineDash([5, 4]); pctx.strokeStyle = "rgba(232,243,240,.55)"; pctx.lineWidth = 1;
+    pctx.strokeRect(ACTIVE.x0 * w, ACTIVE.y0 * h, (ACTIVE.x1 - ACTIVE.x0) * w, (ACTIVE.y1 - ACTIVE.y0) * h);
+    pctx.setLineDash([]);
+    if (!lms) return;
+    var col = Hand.pose === "pinch" ? "#ffc66b" : Hand.pose === "fist" ? "#d79bd0" : "#5fd6c8";
+    var X = function (i) { return (1 - lms[i].x) * w; }, Yp = function (i) { return lms[i].y * h; };
+    pctx.strokeStyle = col; pctx.lineWidth = 2;
+    HAND_EDGES.forEach(function (e) { pctx.beginPath(); pctx.moveTo(X(e[0]), Yp(e[0])); pctx.lineTo(X(e[1]), Yp(e[1])); pctx.stroke(); });
+    pctx.fillStyle = "#ffffff";
+    for (var i = 0; i < 21; i++) { pctx.beginPath(); pctx.arc(X(i), Yp(i), i === 4 || i === 8 ? 3.5 : 2, 0, Math.PI * 2); pctx.fill(); }
+  }
+
+  /* =====================================================================
+     4. Simulation tick (fixed 60 Hz) — the deterministic task logic
+     ===================================================================== */
+  function logEv(type, detail) {
+    S.log.push({ t: Math.round(S.simT * 1000), type: type, step: (STEPS[S.step] || {}).key || "", detail: detail || "" });
+  }
+
+  function updateTip() {
+    if (IN.clutch) return;                                // instrument holds still while the camera moves
+    var hit = raycastScreen(IN.cursor.x, IN.cursor.y);
+    if (hit) { S.tip.p.copy(hit.point).addScaledVector(hit.normal, 0.04); S.tip.n.copy(hit.normal); S.tip.valid = true; }
+    else S.tip.valid = false;
+  }
+
+  function tick(dt) {
+    if (IN.pan.x || IN.pan.y) { panByScreen(IN.pan.x, IN.pan.y, CFG.handPanGain); IN.pan.x = IN.pan.y = 0; }
+    if (IN.zoom !== 1) { setDist(S.cam.d / IN.zoom); IN.zoom = 1; applyCamera(); }
+    updateTip();
+    if (S.phase !== "run" || !S.running) return;
+
+    S.simT += dt;
+    var st = STEPS[S.step].key;
+    var tipV = S.tip.valid && (IN.source === "mouse" || IN.handVisible);
+    var np = tipV ? nearestOnPath(S.tip.p) : null;
+    var dPath = np ? np.d : Infinity, dVes = tipV ? vesselDist(S.tip.p) : Infinity;
+    S.live.dPath = dPath; S.live.dVes = dVes; S.live.s = np ? np.s : 0;
+    var cutting = st === "cut1" || st === "cut2";
+
+    // camera clutch episodes
+    if (IN.clutch && !S.prevClutch) { logEv("camera_move_start"); if (cutting || st === "recenter") S.m.camMoves++; }
+    if (!IN.clutch && S.prevClutch) logEv("camera_move_end", "d_cm=" + S.cam.d.toFixed(2));
+    S.prevClutch = IN.clutch;
+
+    // activation (dissection) episodes
+    var act = IN.activate && !IN.clutch && tipV;
+    if (act && !S.ep.on) {
+      S.ep = { on: true, offT: 0, countedOff: false };
+      logEv("activate_start", "d_path_mm=" + (dPath * 10).toFixed(1));
+      if (st === "center" || st === "zoom" || st === "approach") { S.m.earlyActs++; logEv("premature_activation"); }
+    }
+    if (!act && S.ep.on) { S.ep.on = false; logEv("activate_end", "front_cm=" + S.front.toFixed(2)); }
+    if (act) {
+      if (dVes < CFG.injuryCm && S.simT - S.lastInjT > 2) injure();
+      if (dPath <= CFG.tolCm) {
+        S.ep.offT = 0;
+        if (cutting && np.s <= S.front + CFG.frontAhead && np.s >= S.front - CFG.frontBehind) {
+          var cap = st === "cut1" ? ANAT.sA : ANAT.L, nf = Math.min(cap, Math.max(S.front, np.s));
+          if (nf > S.front) { addCutMarks(nf); S.front = nf; }
+        }
+      } else {
+        S.ep.offT += dt;
+        if (S.ep.offT > 0.15 && !S.ep.countedOff) { S.ep.countedOff = true; S.m.offPlane++; logEv("off_plane", "d_path_mm=" + (dPath * 10).toFixed(1)); }
+        addOffMark();
+      }
+      if (cutting) { S.m.errSum += Math.min(dPath, 2); S.m.errN++; }
+      if (Math.round(S.simT * 60) % 2 === 0) S.trace.push([S.tip.p.x, S.tip.p.z, dPath <= CFG.tolCm ? 1 : 0]);
+    }
+
+    // keeping the dissection front in view
+    if (cutting || st === "recenter") {
+      var pr = projectNDC(pathAt(S.front));
+      var out = !pr.inFront || Math.abs(pr.x) > 0.92 || Math.abs(pr.y) > 0.92;
+      if (out) S.m.frontOutS += dt;
+      if (out !== S.frontOut) { S.frontOut = out; logEv(out ? "front_out_of_view" : "front_in_view"); }
+      S.m.distSum += S.cam.d * dt; S.m.distT += dt;
+    } else S.frontOut = false;
+
+    // step completion criteria
+    switch (st) {
+      case "center": hold(centerDist(ANAT.start) <= CFG.centerR, CFG.holdS, dt); break;
+      case "zoom": hold(S.cam.d >= CFG.zoomBand[0] && S.cam.d <= CFG.zoomBand[1] && centerDist(ANAT.start) <= CFG.startZoomR, CFG.holdS, dt); break;
+      case "approach": hold(tipV && S.tip.p.distanceTo(ANAT.start) <= CFG.approachCm && !IN.activate, CFG.approachHoldS, dt); break;
+      case "cut1": if (S.front >= ANAT.sA - 0.02) completeStep(); break;
+      case "recenter": hold(centerDist(ANAT.markerA) <= CFG.centerR, CFG.holdS, dt); break;
+      case "cut2": if (S.front >= ANAT.L - 0.15) completeStep(); break;
+    }
+
+    // simple haemodynamics: blood loss raises HR first, then lowers SBP
+    var rate = 0;
+    S.injuries.forEach(function (j) { rate += 40 * Math.exp(-(S.simT - j.t) / 6); });
+    S.bloodMl += rate * dt;
+    S.hr = 76 + Math.min(48, S.bloodMl * 0.13);
+    S.sbp = 120 - clamp((S.bloodMl - 140) * 0.16, 0, 40);
+
+    // 10 Hz trajectory samples for the CSV
+    if (S.simT >= S.nextSampleT) {
+      S.nextSampleT += 1 / CFG.sampleHz;
+      S.samples.push({ t: Math.round(S.simT * 1000), type: "sample", step: st, detail:
+        "u=" + IN.cursor.x.toFixed(3) + ";v=" + IN.cursor.y.toFixed(3) +
+        ";tip_x=" + S.tip.p.x.toFixed(2) + ";tip_z=" + S.tip.p.z.toFixed(2) +
+        ";d_path_mm=" + (isFinite(dPath) ? (dPath * 10).toFixed(1) : "") + ";d_vessel_mm=" + (isFinite(dVes) ? (dVes * 10).toFixed(1) : "") +
+        ";act=" + (act ? 1 : 0) + ";clutch=" + (IN.clutch ? 1 : 0) + ";cam_x=" + S.cam.target.x.toFixed(2) + ";cam_z=" + S.cam.target.z.toFixed(2) +
+        ";cam_d=" + S.cam.d.toFixed(2) + ";front_cm=" + S.front.toFixed(2) + ";pose=" + (IN.source === "hand" ? Hand.pose : "mouse") });
+    }
+  }
+
+  function hold(cond, need, dt) {
+    S.holdT = cond ? S.holdT + dt : 0;
+    S.holdNeed = need;
+    if (S.holdT >= need) completeStep();
+  }
+  function completeStep() {
+    var dtStep = S.simT - S.stepStartT;
+    S.stepTimes[S.step] = dtStep;
+    logEv("step_complete", "dt_s=" + dtStep.toFixed(2));
+    S.holdT = 0;
+    if (S.step + 1 < STEPS.length) { S.step++; S.stepStartT = S.simT; logEv("step_enter"); renderStepUI(); }
+    else finish(true);
+  }
+
+  function addCutMarks(nf) {
+    var spacing = 0.12;
+    for (var s = S.lastMarkS + spacing; s <= nf && cutCount < cutMarks.instanceMatrix.count; s += spacing) {
+      var p = pathAt(s), sf = surfaceAt(p.x, p.z), n = sf ? sf.normal : Y;
+      dummy.position.copy(p).addScaledVector(n, 0.02);
+      dummy.quaternion.setFromUnitVectors(Y, n);
+      dummy.scale.set(1, 0.33, 1); dummy.updateMatrix();
+      cutMarks.setMatrixAt(cutCount++, dummy.matrix);
+      S.lastMarkS = s;
+    }
+    cutMarks.count = cutCount; cutMarks.instanceMatrix.needsUpdate = true;
+  }
+  function addOffMark() {
+    if (S.lastOff && S.lastOff.distanceTo(S.tip.p) < 0.15) return;
+    if (offCount >= offMarks.instanceMatrix.count) return;
+    dummy.position.copy(S.tip.p); dummy.quaternion.setFromUnitVectors(Y, S.tip.n); dummy.scale.set(1, 0.4, 1); dummy.updateMatrix();
+    offMarks.setMatrixAt(offCount++, dummy.matrix); offMarks.count = offCount; offMarks.instanceMatrix.needsUpdate = true;
+    S.lastOff = S.tip.p.clone();
+  }
+  function injure() {
+    S.lastInjT = S.simT; S.m.injuries++;
+    S.injuries.push({ t: S.simT, x: S.tip.p.x, z: S.tip.p.z });
+    logEv("vessel_injury", "x=" + S.tip.p.x.toFixed(2) + ";z=" + S.tip.p.z.toFixed(2) + ";d_vessel_mm=" + (S.live.dVes * 10).toFixed(1));
+    if (bleeds.length >= 6) return;
+    var mesh = new THREE.Mesh(new THREE.CircleGeometry(1, 48), new THREE.MeshStandardMaterial({ color: 0x4a070b, roughness: 0.12, metalness: 0.05, transparent: true, opacity: 0.94, polygonOffset: true, polygonOffsetFactor: -2 }));
+    mesh.position.copy(S.tip.p).addScaledVector(S.tip.n, 0.03);
+    mesh.quaternion.setFromUnitVectors(Z, S.tip.n);
+    mesh.scale.setScalar(0.05);
+    scene.add(mesh); bleeds.push({ mesh: mesh, t0: S.simT });
+  }
+
+  /* =====================================================================
+     5. Rendering + overlays (signaling that fades with the guidance mode)
+     ===================================================================== */
+  var lastFrame = performance.now(), acc = 0;
+  function frame() {
+    requestAnimationFrame(frame);
+    var now = performance.now(), dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+    if (IN.source === "hand") pollHand();
+    acc += dt;
+    var stepDt = 1 / CFG.stepHz;
+    while (acc >= stepDt) { acc -= stepDt; tick(stepDt); }
+    if (!webglOk || S.phase !== "run") return;
+    updateScene(now);
+    renderer.render(scene, cam);
+    updateOverlay();
+  }
+
+  function updateScene(now) {
+    var st = STEPS[S.step].key, m = S.mode, pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+    var setRing = function (r, show) {
+      r.visible = show && m !== "assess";
+      if (!r.visible) return;
+      r.material.opacity = m === "guided" ? 0.55 + 0.45 * pulse : 0.5;
+      r.scale.setScalar(m === "guided" ? 1 + 0.12 * pulse : 1);
+    };
+    setRing(startRing, st === "center" || st === "zoom" || st === "approach");
+    setRing(markerRing, st === "cut1" || st === "recenter");
+    endRing.visible = m === "guided" && st === "cut2";
+    if (endRing.visible) endRing.material.opacity = 0.55 + 0.45 * pulse;
+
+    if (m === "assess") pathLine.visible = false;
+    else if (m === "guided") {
+      pathLine.visible = true; pathLine.geometry.setDrawRange(0, ANAT.N + 1);
+      pathLine.material.opacity = (st === "cut1" || st === "cut2") ? 0.85 : 0.45;
+    } else {
+      var cutting = st === "cut1" || st === "cut2";
+      pathLine.visible = cutting;
+      if (cutting) {
+        var i0 = Math.floor(S.front / ANAT.L * ANAT.N), n = Math.ceil(2.2 / ANAT.L * ANAT.N);
+        pathLine.geometry.setDrawRange(i0, Math.min(n, ANAT.N + 1 - i0)); pathLine.material.opacity = 0.7;
+      }
+    }
+
+    // vessel highlight (guided only)
+    var near = S.live.dVes < CFG.warnCm && m === "guided";
+    vesselMats.forEach(function (vm) { if (vm.emissive) vm.emissive.setRGB(near ? 0.35 * pulse : 0, 0, near ? 0.25 * pulse : 0); });
+
+    // bleeding pools grow then settle
+    bleeds.forEach(function (b) { var r = 1.3 * (1 - Math.exp(-(S.simT - b.t0) / 2.2)); b.mesh.scale.set(Math.max(0.05, r), Math.max(0.05, r), 1); });
+
+    // instrument
+    inst.visible = S.tip.valid && (IN.source === "mouse" || IN.handVisible);
+    if (inst.visible) {
+      var right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion);
+      var back = new THREE.Vector3(0, 0, 1).applyQuaternion(cam.quaternion);
+      var dir = right.multiplyScalar(0.55).add(new THREE.Vector3(0, 0.62, 0)).add(back.multiplyScalar(0.5)).normalize();
+      inst.position.copy(S.tip.p);
+      inst.quaternion.setFromUnitVectors(Y, dir);
+      var cuttingNow = IN.activate && !IN.clutch;
+      var open = cuttingNow ? 0.05 : 0.3;
+      jawPivA.rotation.z = open; jawPivB.rotation.z = -open;
+      glow.material.opacity = cuttingNow ? 0.55 + 0.35 * pulse : 0;
+      glow.material.color.setHex(cuttingNow && S.live.dPath > CFG.tolCm ? 0xff8a6b : 0xfff1b0);
+    }
+  }
+
+  var overlayCache = {};
+  function setText(id, txt) { if (overlayCache[id] === txt) return; overlayCache[id] = txt; $(id).textContent = txt; }
+  function updateOverlay() {
+    var st = STEPS[S.step].key, m = S.mode, h = field.clientHeight, w = field.clientWidth;
+    // centre reticle
+    var ret = $("#reticle");
+    var showRet = m !== "assess" && (st === "center" || st === "zoom" || st === "recenter" || (m === "guided" && (st === "cut1" || st === "cut2")));
+    ret.hidden = !showRet;
+    if (showRet) { var D = Math.round(2 * CFG.centerR * (h / 2)); ret.style.width = ret.style.height = D + "px"; ret.style.opacity = (st === "cut1" || st === "cut2") ? 0.4 : 1; }
+    // direction arrow (guided only)
+    var arrow = $("#arrow"), target = null;
+    if (m === "guided") {
+      if (st === "center" || st === "zoom") target = ANAT.start;
+      else if (st === "recenter") target = ANAT.markerA;
+      else if ((st === "cut1" || st === "cut2") && S.frontOut) target = pathAt(S.front);
+    }
+    var showArrow = false;
+    if (target) {
+      var pr = projectNDC(target), cdx = pr.x * cam.aspect, cdy = pr.y;
+      if (!pr.inFront) { cdx = -cdx; cdy = -cdy; }
+      if (Math.hypot(cdx, cdy) > CFG.centerR * 1.6) {
+        showArrow = true;
+        var ang = Math.atan2(cdx, cdy), rad = 0.36 * Math.min(w, h);
+        arrow.style.left = (w / 2 + Math.sin(ang) * rad - 11) + "px";
+        arrow.style.top = (h / 2 - Math.cos(ang) * rad - 10) + "px";
+        arrow.style.transform = "rotate(" + ang + "rad)";
+      }
+    }
+    arrow.hidden = !showArrow;
+    // zoom gauge (top = close)
+    var lg = function (d) { return (Math.log(d) - Math.log(CFG.dMin)) / (Math.log(CFG.dMax) - Math.log(CFG.dMin)); };
+    $("#zg-mark").style.top = "calc(" + (lg(S.cam.d) * 100).toFixed(1) + "% - 1px)";
+    var band = $("#zg-band");
+    band.hidden = m === "assess";
+    band.style.top = (lg(CFG.zoomBand[0]) * 100).toFixed(1) + "%";
+    band.style.height = ((lg(CFG.zoomBand[1]) - lg(CFG.zoomBand[0])) * 100).toFixed(1) + "%";
+    // warnings
+    var warns = [];
+    if (m !== "assess") {
+      if (IN.source === "hand" && !IN.handVisible) warns.push(["手が見えません — 点線の枠の中に手を入れてください", ""]);
+      if (IN.activate && !IN.clutch && S.live.dPath > CFG.tolCm) warns.push(["剥離平面から外れています", "crit"]);
+      if (S.live.dVes < CFG.warnCm) warns.push(["血管に近い", "crit"]);
+      if ((st === "cut1" || st === "cut2") && S.frontOut) warns.push(["剥離前線が視野の外です", ""]);
+    }
+    var html = warns.slice(0, 2).map(function (x) { return '<div class="warn ' + x[1] + '">' + x[0] + "</div>"; }).join("");
+    if (overlayCache.warns !== html) { overlayCache.warns = html; $("#warns").innerHTML = html; }
+    // chips + vitals
+    setText("#chip-input", IN.source === "hand" ? "手: " + (POSE_LABEL[Hand.pose] || "") : (IN.toolMode === "camera" ? "マウス: カメラ" : "マウス: 器具"));
+    setText("#v-hr", String(Math.round(S.hr)));
+    setText("#v-sbp", String(Math.round(S.sbp)));
+    // step card progress
+    var bar = 0, kvL = "保持", kvR = "—";
+    if (st === "cut1" || st === "cut2") {
+      var goal = st === "cut1" ? ANAT.sA : ANAT.L;
+      bar = S.front / goal; kvL = "剥離の進み"; kvR = (S.front / ANAT.L * 100).toFixed(0) + "% (全体)";
+    } else if (S.holdNeed) {
+      bar = S.holdT / S.holdNeed; kvL = "条件を保持";
+      kvR = st === "zoom" ? "距離 " + S.cam.d.toFixed(1) + " cm" : (st === "approach" && S.tip.valid ? "開始点まで " + (S.tip.p.distanceTo(ANAT.start) * 10).toFixed(0) + " mm" : (bar * 100).toFixed(0) + "%");
+    }
+    $("#run-bar").style.width = (clamp(bar, 0, 1) * 100).toFixed(1) + "%";
+    setText("#run-kv-l", kvL); setText("#run-kv-r", kvR);
+  }
+
+  /* =====================================================================
+     6. Phases and UI
+     ===================================================================== */
+  function renderChecklist(sel, active) {
+    var el = $(sel); el.innerHTML = "";
+    STEPS.forEach(function (s, i) {
+      var li = document.createElement("li");
+      li.dataset.state = i < active ? "done" : (i === active ? "active" : "todo");
+      li.innerHTML = '<span class="ix">' + (i < active ? "✓" : (i + 1)) + "</span><span></span>";
+      li.lastChild.textContent = s.title;
+      el.appendChild(li);
+    });
+  }
+  function renderStepUI() {
+    var s = STEPS[S.step];
+    setText("#run-stepnum", "ステップ " + (S.step + 1) + " / " + STEPS.length);
+    setText("#chip-step", (S.step + 1) + " / " + STEPS.length);
+    $("#run-title").textContent = s.title;
+    $("#run-cue").textContent = S.mode === "guided" ? (IN.source === "hand" ? s.cueHand : s.cueMouse)
+      : S.mode === "faded" ? s.short : "評価モード: 手順名のみ表示します。";
+    renderChecklist("#run-list", S.step);
+    S.holdNeed = 0;
+  }
+
+  function showPhase(p) {
+    S.phase = p;
+    $("#phase-pre").hidden = p !== "pre";
+    $("#phase-run").hidden = p !== "run";
+    $("#phase-debrief").hidden = p !== "debrief";
+    var card = $("#camcard");
+    (p === "run" ? $("#cam-slot-run") : $("#cam-slot-pre")).appendChild(card);
+    if (p === "run") { resize(); applyCamera(); }
+    window.scrollTo(0, 0);
+  }
+
+  function selectMode(m) {
+    S.mode = m;
+    ["guided", "faded", "assess"].forEach(function (k) { $("#mode-" + k).setAttribute("aria-pressed", String(k === m)); });
+    $("#mode-desc").textContent = MODE_DESC[m];
+  }
+  function selectSource(src, quiet) {
+    IN.source = src;
+    $("#src-hand").setAttribute("aria-pressed", String(src === "hand"));
+    $("#src-mouse").setAttribute("aria-pressed", String(src === "mouse"));
+    if (src === "hand") { startHand(); }
+    else { if (!quiet) setHandStatus("マウスで操作します。"); resetHandInput(); }
+    updateStartButton();
+  }
+  function updateStartButton() {
+    var b = $("#start");
+    var waiting = IN.source === "hand" && !Hand.ready;
+    b.disabled = waiting || !webglOk;
+    b.textContent = waiting ? (Hand.loading ? "手の認識を準備中…" : "課題を開始") : "課題を開始";
+  }
+
+  function clearMarks() {
+    cutCount = 0; offCount = 0; cutMarks.count = 0; offMarks.count = 0;
+    bleeds.forEach(function (b) { scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); });
+    bleeds = [];
+  }
+
+  function startSession() {
+    if (!webglOk) return;
+    clearMarks();
+    S.step = 0; S.holdT = 0; S.holdNeed = 0; S.simT = 0; S.stepStartT = 0; S.stepTimes = []; S.finished = false;
+    S.front = 0; S.lastMarkS = 0; S.lastOff = null; S.m = freshMetrics(); S.ep = { on: false, offT: 0, countedOff: false };
+    S.lastInjT = -99; S.frontOut = false; S.prevClutch = false; S.log = []; S.samples = []; S.trace = []; S.injuries = [];
+    S.nextSampleT = 0; S.bloodMl = 0; S.hr = 76; S.sbp = 120;
+    IN.activate = false; IN.clutch = false; IN.pan.x = IN.pan.y = 0; IN.zoom = 1; cutHeld = false;
+    setToolMode("tool");
+    $("#ctrls").hidden = IN.source !== "mouse";
+    $("#scopehint").textContent = IN.source === "mouse" ? "左: 剥離 · 右ドラッグ: 視野 · ホイール: 拡大" : "開く: 器具 · つまむ: 剥離 · 握る: 視野";
+    setText("#chip-mode", { guided: "Guided", faded: "Faded", assess: "Assessment" }[S.mode]);
+    resetCamera();
+    showPhase("run");
+    S.running = true;
+    logEv("session_start", "mode=" + S.mode + ";input=" + IN.source + ";anatomy=" + ANAT.source + ";path_cm=" + ANAT.L.toFixed(2) + ";tol_mm=" + (CFG.tolCm * 10) + (IN.source === "hand" ? ";delegate=" + Hand.delegate : ""));
+    logEv("step_enter");
+    renderStepUI();
+  }
+
+  /* =====================================================================
+     7. Debrief: metrics, trace, step times, one focused improvement point
+     ===================================================================== */
+  var TLX = [["mental", "知的・知覚的要求"], ["physical", "身体的要求"], ["temporal", "タイムプレッシャー"], ["performance", "作業の達成度(低いほど良い)"], ["effort", "努力"], ["frustration", "フラストレーション"]];
+  function buildTLX() {
+    var el = $("#tlx"); el.innerHTML = "";
+    TLX.forEach(function (t) {
+      var wrap = document.createElement("div");
+      wrap.innerHTML = '<label for="tlx-' + t[0] + '"><span></span><output id="tlx-o-' + t[0] + '">50</output></label><input type="range" id="tlx-' + t[0] + '" min="0" max="100" step="5" value="50">';
+      wrap.querySelector("span").textContent = t[1];
+      el.appendChild(wrap);
+      wrap.querySelector("input").addEventListener("input", function (e) { $("#tlx-o-" + t[0]).textContent = e.target.value; updateRawTLX(); });
+    });
+  }
+  function tlxValues() { var o = {}; TLX.forEach(function (t) { o[t[0]] = +$("#tlx-" + t[0]).value; }); return o; }
+  function updateRawTLX() { var v = tlxValues(), s = 0; TLX.forEach(function (t) { s += v[t[0]]; }); $("#tlx-raw").textContent = (s / TLX.length).toFixed(1); }
+
+  var SUMMARY = null;
+  function finish(completed) {
+    if (S.finished) return;
+    S.finished = true; S.running = false;
+    if (S.ep.on) logEv("activate_end");
+    logEv("session_end", completed ? "completed=1" : "completed=0;stopped_at=" + STEPS[S.step].key);
+    var m = S.m;
+    SUMMARY = {
+      completed: completed ? 1 : 0,
+      total_s: +S.simT.toFixed(2),
+      camera_setup_s: +(((S.stepTimes[0] || 0) + (S.stepTimes[1] || 0))).toFixed(2),
+      path_error_mm: m.errN ? +(m.errSum / m.errN * 10).toFixed(2) : 0,
+      off_plane_episodes: m.offPlane,
+      vessel_injuries: m.injuries,
+      front_out_of_view_s: +m.frontOutS.toFixed(2),
+      camera_moves_during_dissection: m.camMoves,
+      mean_camera_distance_cm: m.distT ? +(m.distSum / m.distT).toFixed(2) : 0,
+      premature_activations: m.earlyActs,
+      progress_pct: +(S.front / ANAT.L * 100).toFixed(1),
+      blood_loss_ml: Math.round(S.bloodMl),
+      mode: S.mode, input: IN.source, anatomy: ANAT.source
+    };
+    renderDebrief();
+    showPhase("debrief");
+  }
+
+  function renderDebrief() {
+    var s = SUMMARY;
+    $("#d-heading").textContent = s.completed ? "結果 — 全手順を完了しました" : "結果 — 途中で終了(剥離 " + s.progress_pct.toFixed(0) + "%)";
+    var tiles = [
+      [s.total_s.toFixed(1), "秒", "総所要時間", ""],
+      [s.camera_setup_s.toFixed(1), "秒", "視野の準備(中心化+拡大)", ""],
+      [s.path_error_mm.toFixed(1), "mm", "平均経路誤差(剥離中)", s.path_error_mm > CFG.tolCm * 10 ? "crit" : "good"],
+      [String(s.off_plane_episodes), "回", "剥離平面からの逸脱", s.off_plane_episodes ? "crit" : "good"],
+      [String(s.vessel_injuries), "回", "血管損傷", s.vessel_injuries ? "crit" : "good"],
+      [s.front_out_of_view_s.toFixed(1), "秒", "前線が視野外だった時間", s.front_out_of_view_s > 3 ? "crit" : ""]
+    ];
+    $("#d-metrics").innerHTML = tiles.map(function (t) {
+      return '<div class="metric" data-flag="' + t[3] + '"><div class="n">' + t[0] + "<small>" + t[1] + '</small></div><div class="k">' + t[2] + "</div></div>";
+    }).join("");
+    $("#d-secondary").textContent = "剥離中の視野の動かし直し " + s.camera_moves_during_dissection + " 回 · 剥離中の平均カメラ距離 " + s.mean_camera_distance_cm.toFixed(1) + " cm(推奨 " + CFG.zoomBand[0] + "–" + CFG.zoomBand[1] + ")· 準備前の剥離操作 " + s.premature_activations + " 回 · 推定出血 " + s.blood_loss_ml + " mL · モード " + { guided: "Guided", faded: "Faded", assess: "Assessment" }[s.mode] + " · 入力 " + (s.input === "hand" ? "手" : "マウス");
+    $("#d-improve").textContent = improvementPoint(s);
+    // step times
+    var max = Math.max.apply(null, STEPS.map(function (_, i) { return S.stepTimes[i] || 0; }).concat([1]));
+    $("#d-steps").innerHTML = STEPS.map(function (st, i) {
+      var v = S.stepTimes[i];
+      return '<div class="st"><span>' + (i + 1) + ". " + st.title + '</span><span class="track"><i style="width:' + ((v || 0) / max * 100).toFixed(1) + '%"></i></span><span class="sec">' + (v != null ? v.toFixed(1) + " s" : "—") + "</span></div>";
+    }).join("");
+    buildTLX(); updateRawTLX();
+    drawTrace();
+    $("#csv-text").value = buildCSV();
+    $("#csv-status").textContent = "";
+  }
+
+  function improvementPoint(s) {
+    if (s.vessel_injuries > 0) return "次の着目点はひとつ: 血管の近くでは、つまむ前に器具先端と血管(紫がかった隆起)の距離を目で確かめてください。";
+    if (s.off_plane_episodes >= 2) return "次の着目点はひとつ: 進める前に、白っぽい疎性結合組織の層(剥離平面)を目で確かめてから切ってください。";
+    if (s.front_out_of_view_s > 3) return "次の着目点はひとつ: 前線が端に寄ったら、切るのを止めて視野を動かしてから続けてください。";
+    if (s.mean_camera_distance_cm > 16) return "次の着目点はひとつ: 引きすぎです。目盛りの帯まで寄ると、経路誤差が小さくなります。";
+    if (s.premature_activations > 0) return "次の着目点はひとつ: 視野と器具の準備が終わるまで、剥離操作を始めないでください。";
+    if (!s.completed) return "次の着目点はひとつ: まずは Guided モードで最後まで通してみてください。";
+    return S.mode === "assess" ? "良好です。別の日にもう一度 Assessment で行い、記録が安定しているか確かめましょう。" : "良好です。次はガイダンスを一段減らして(" + (S.mode === "guided" ? "Faded" : "Assessment") + ")試してください。";
+  }
+
+  function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888"; }
+  function drawTrace() {
+    var c = $("#trace"), dpr = Math.min(2, window.devicePixelRatio || 1);
+    var W = c.clientWidth || 640, H = Math.round(W * 3 / 4);
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    var g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    var pts = ANAT.samples, minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    pts.forEach(function (p) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); });
+    minX -= 2; maxX += 2; minZ -= 1.5; maxZ += 1.5;
+    var sc = Math.min((W - 28) / (maxX - minX), (H - 28) / (maxZ - minZ));
+    var ox = (W - (maxX - minX) * sc) / 2, oz = (H - (maxZ - minZ) * sc) / 2;
+    var X = function (x) { return ox + (x - minX) * sc; }, Zc = function (z) { return oz + (z - minZ) * sc; };
+    var poly = function (arr, col, wid, dash) {
+      g.strokeStyle = col; g.lineWidth = wid; g.setLineDash(dash || []); g.lineCap = "round"; g.lineJoin = "round";
+      g.beginPath(); arr.forEach(function (p, i) { i ? g.lineTo(X(p.x), Zc(p.z)) : g.moveTo(X(p.x), Zc(p.z)); }); g.stroke(); g.setLineDash([]);
+    };
+    g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip();
+    if (ANAT.vessel.length && !ANAT.vesselCloud) poly(ANAT.vessel, cssVar("--vessel"), Math.max(2, 0.56 * sc), null);
+    else if (ANAT.vesselCloud) { g.fillStyle = cssVar("--vessel"); ANAT.vessel.forEach(function (p) { g.fillRect(X(p.x) - 1, Zc(p.z) - 1, 2, 2); }); }
+    poly(pts, cssVar("--line"), Math.max(3, 2 * CFG.tolCm * sc), null);
+    poly(pts, cssVar("--muted"), 1.2, [5, 4]);
+    var acc = cssVar("--accent"), crit = cssVar("--crit");
+    S.trace.forEach(function (q) { g.fillStyle = q[2] ? acc : crit; g.beginPath(); g.arc(X(q[0]), Zc(q[1]), 1.9, 0, Math.PI * 2); g.fill(); });
+    S.injuries.forEach(function (j) { g.strokeStyle = crit; g.lineWidth = 2; g.beginPath(); g.arc(X(j.x), Zc(j.z), 7, 0, Math.PI * 2); g.stroke(); });
+    g.fillStyle = cssVar("--fg"); g.font = "500 11px " + cssVar("--mono");
+    var a = pts[0], b = pts[pts.length - 1], mA = ANAT.markerA;
+    g.fillText("開始", X(a.x) + 8, Zc(a.z) + 4); g.fillText("終点", X(b.x) + 8, Zc(b.z) + 4); g.fillText("目標リング", X(mA.x) + 8, Zc(mA.z) + 4);
+    [a, mA, b].forEach(function (p) { g.beginPath(); g.arc(X(p.x), Zc(p.z), 3, 0, Math.PI * 2); g.fill(); });
+    // scale bar (1 cm)
+    g.strokeStyle = cssVar("--muted"); g.lineWidth = 2; g.beginPath(); g.moveTo(12, H - 14); g.lineTo(12 + sc, H - 14); g.stroke();
+    g.fillStyle = cssVar("--muted"); g.fillText("1 cm", 16 + sc, H - 10);
+    g.restore();
+  }
+
+  function csvField(v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function buildCSV() {
+    var rows = S.log.concat(S.samples).sort(function (a, b) { return a.t - b.t; });
+    var out = ["t_ms,type,step,detail"];
+    rows.forEach(function (r) { out.push([r.t, r.type, r.step, csvField(r.detail)].join(",")); });
+    if (SUMMARY) Object.keys(SUMMARY).forEach(function (k) { out.push(["", "summary", "", csvField(k + "=" + SUMMARY[k])].join(",")); });
+    if ($("#tlx-mental")) { var v = tlxValues(); Object.keys(v).forEach(function (k) { out.push(["", "nasa_tlx", "", csvField(k + "=" + v[k])].join(",")); }); out.push(["", "nasa_tlx", "", "raw_tlx=" + $("#tlx-raw").textContent].join(",")); }
+    return out.join("\n");
+  }
+  function csvName() {
+    var d = new Date(), p = function (n) { return String(n).padStart(2, "0"); };
+    return "dissection_" + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + "_" + p(d.getHours()) + p(d.getMinutes()) + ".csv";
+  }
+  var dlCap = null;
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("downloads").then(function (d) { dlCap = d; }, function () { dlCap = null; });
+  }
+  function saveCSV() {
+    var csv = "﻿" + buildCSV(), st = $("#csv-status");
+    $("#csv-text").value = csv.slice(1);
+    if (dlCap) {
+      dlCap.save({ filename: csvName(), data: csv }).then(function () { st.textContent = "保存しました。"; st.className = "status ok"; },
+        function (e) { st.textContent = e && e.code === "declined" ? "保存を取りやめました。" : "この画面では保存できません。「CSVをコピー」をお使いください。"; st.className = "status"; });
+      return;
+    }
+    try {
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = csvName(); document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      st.textContent = "ダウンロードしました(" + csvName() + ")。"; st.className = "status ok";
+    } catch (e) { st.textContent = "保存できませんでした。「CSVをコピー」をお使いください。"; st.className = "status err"; }
+  }
+  function copyCSV() {
+    var ta = $("#csv-text"), st = $("#csv-status"); ta.value = buildCSV();
+    var done = function () { st.textContent = "コピーしました。"; st.className = "status ok"; };
+    var fallback = function () { ta.closest("details").open = true; ta.focus(); ta.select(); st.textContent = "選択しました。Ctrl+C(⌘C)でコピーしてください。"; st.className = "status"; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, fallback); else fallback();
+  }
+
+  /* =====================================================================
+     8. Blender GLB import (Path_## / Vessel_## empties)
+     ===================================================================== */
+  var GLBINFO = null;
+  function importGLB(file) {
+    var st = $("#glb-status");
+    if (!THREE.GLTFLoader) { st.textContent = "GLB読み込み機能を取得できませんでした(インターネット接続を確認)。"; st.className = "status err"; return; }
+    st.textContent = "読み込み中…"; st.className = "status";
+    file.arrayBuffer().then(function (buf) {
+      new THREE.GLTFLoader().parse(buf, "", function (gltf) {
+        try { applyGLB(gltf.scene, file.name); }
+        catch (e) { st.textContent = "このファイルは使えません: " + e.message; st.className = "status err"; }
+      }, function (err) { st.textContent = "GLBを解析できませんでした: " + ((err && err.message) || err); st.className = "status err"; });
+    });
+  }
+  function applyGLB(root, name) {
+    var st = $("#glb-status");
+    root.updateMatrixWorld(true);
+    var box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
+    var unit = "cm";
+    if (Math.max(size.x, size.y, size.z) < 3) { root.scale.multiplyScalar(100); root.updateMatrixWorld(true); unit = "m → cm に換算"; }
+    var pathNodes = [], vesNodes = [], vesMeshes = [], tissueNamed = [], meshes = [];
+    root.traverse(function (o) {
+      var nm = o.name || "", mp = nm.match(/^path[_\-]?(\d+)$/i), mv = nm.match(/^vessel[_\-]?(\d+)$/i);
+      if (mp) pathNodes.push({ i: +mp[1], o: o });
+      else if (mv && !o.isMesh) vesNodes.push({ i: +mv[1], o: o });
+      else if (o.isMesh) {
+        if (/^vessel/i.test(nm) || (o.parent && /^vessel/i.test(o.parent.name || ""))) vesMeshes.push(o);
+        else { meshes.push(o); if (/^tissue/i.test(nm) || (o.parent && /^tissue/i.test(o.parent.name || ""))) tissueNamed.push(o); }
+      }
+    });
+    if (pathNodes.length < 2) throw new Error("剥離線のエンプティ(Path_00, Path_01 …)が2つ以上必要です。");
+    var tissue = tissueNamed.length ? tissueNamed : meshes;
+    if (!tissue.length) throw new Error("術野のメッシュが見つかりません。");
+    pathNodes.sort(function (a, b) { return a.i - b.i; });
+    vesNodes.sort(function (a, b) { return a.i - b.i; });
+
+    if (glbGroup) scene.remove(glbGroup);
+    glbGroup = root; scene.add(root); defaultGroup.visible = false;
+    ANAT.source = "glb"; ANAT.tissue = tissue;
+    var tb = new THREE.Box3(); tissue.forEach(function (m) { tb.expandByObject(m); });
+    ANAT.bounds = { minX: tb.min.x, maxX: tb.max.x, minZ: tb.min.z, maxZ: tb.max.z };
+    // path: project each empty onto the tissue surface
+    var pp = pathNodes.map(function (n) {
+      var w = n.o.getWorldPosition(new THREE.Vector3()), s = surfaceAt(w.x, w.z);
+      return s ? s.point : w;
+    });
+    // vessel
+    vesselMats = [];
+    if (vesNodes.length >= 2) {
+      var vc = new THREE.CatmullRomCurve3(vesNodes.map(function (n) { return n.o.getWorldPosition(new THREE.Vector3()); }), false, "centripetal");
+      ANAT.vessel = vc.getSpacedPoints(240); ANAT.vesselCloud = false;
+    } else if (vesMeshes.length) {
+      var cloud = [];
+      vesMeshes.forEach(function (m) {
+        var pos = m.geometry.attributes.position, step = Math.max(1, Math.floor(pos.count / 1500));
+        for (var i = 0; i < pos.count; i += step) cloud.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld));
+      });
+      ANAT.vessel = cloud; ANAT.vesselCloud = true;
+    } else { ANAT.vessel = []; ANAT.vesselCloud = false; }
+    vesMeshes.forEach(function (m) { (Array.isArray(m.material) ? m.material : [m.material]).forEach(function (mt) { if (mt.emissive) vesselMats.push(mt); }); });
+    setPath(pp);
+    GLBINFO = { name: name, unit: unit, pathPoints: pathNodes.length, vesselPoints: vesNodes.length, vesselMeshes: vesMeshes.length, tissueMeshes: tissue.length, pathCm: +ANAT.L.toFixed(2) };
+    st.textContent = "読み込みました: " + name + " · 剥離線 " + pathNodes.length + " 点(長さ " + ANAT.L.toFixed(1) + " cm)· 血管 " + (vesNodes.length >= 2 ? vesNodes.length + " 点" : (vesMeshes.length ? "メッシュ " + vesMeshes.length : "なし")) + " · 単位 " + unit;
+    st.className = "status ok";
+    $("#glb-reset").hidden = false;
+  }
+
+  /* =====================================================================
+     9. Wiring
+     ===================================================================== */
+  function boot() {
+    initScene();
+    renderChecklist("#pre-list", -1);
+    selectMode("guided");
+    $("#mode-guided").onclick = function () { selectMode("guided"); };
+    $("#mode-faded").onclick = function () { selectMode("faded"); };
+    $("#mode-assess").onclick = function () { selectMode("assess"); };
+    $("#src-hand").onclick = function () { selectSource("hand"); };
+    $("#src-mouse").onclick = function () { selectSource("mouse"); };
+    $("#cam-stop").onclick = function () { stopHand(); selectSource("mouse"); };
+    $("#start").onclick = startSession;
+    $("#abort").onclick = function () { finish(false); };
+    $("#restart").onclick = function () { showPhase("pre"); };
+    $("#csv-save").onclick = saveCSV;
+    $("#csv-copy").onclick = copyCSV;
+    $("#glb-input").addEventListener("change", function (e) { var f = e.target.files && e.target.files[0]; if (f) importGLB(f); });
+    $("#glb-reset").onclick = function () { setAnatomyDefault(); GLBINFO = null; $("#glb-status").textContent = "標準の術野を使用中。"; $("#glb-status").className = "status"; $("#glb-reset").hidden = true; $("#glb-input").value = ""; };
+    if (webglOk) { bindMouse(); resetCamera(); }
+    updateStartButton();
+    showPhase("pre");
+    requestAnimationFrame(frame);
+  }
+
+  /* test & research hook: read-only views of the running state */
+  window.__dbg = {
+    state: function () { return { cursor: { x: IN.cursor.x, y: IN.cursor.y }, aspect: webglOk ? cam.aspect : 0, canvas: webglOk ? [renderer.domElement.width, renderer.domElement.height, renderer.domElement.clientWidth, renderer.domElement.clientHeight] : null, phase: S.phase, step: S.step, stepKey: (STEPS[S.step] || {}).key, front: S.front, L: ANAT.L, sA: ANAT.sA, d: S.cam.d, target: S.cam.target.clone(), tip: S.tip.valid ? S.tip.p.clone() : null, live: S.live, m: S.m, summary: SUMMARY, hand: { ready: Hand.ready, frames: Hand.frames, pose: Hand.pose, delegate: Hand.delegate }, glb: GLBINFO, anatomy: ANAT.source }; },
+    screenOf: function (p) { var r = field.getBoundingClientRect(), pr = projectNDC(new THREE.Vector3(p.x, p.y, p.z)); return { x: r.left + (pr.x + 1) / 2 * r.width, y: r.top + (1 - pr.y) / 2 * r.height, inFront: pr.inFront }; },
+    pathAt: function (s) { return pathAt(s); },
+    start: function () { return ANAT.start.clone(); }, markerA: function () { return ANAT.markerA.clone(); },
+    vesselMin: function () { var best = Infinity; ANAT.samples.forEach(function (p) { best = Math.min(best, vesselDist(p)); }); return best; },
+    vesselNearest: function (p) { var q = new THREE.Vector3(p.x, p.y, p.z), best = null, bd = Infinity; ANAT.vessel.forEach(function (v) { var d = v.distanceTo(q); if (d < bd) { bd = d; best = v; } }); return best ? best.clone() : null; },
+    classify: classifyHand,
+    handOnImage: function (img) { if (!Hand.lm) return null; var r = Hand.lm.detectForVideo(img, performance.now()); var l = r.landmarks && r.landmarks[0]; return l ? { pose: classifyHand(l, img.naturalWidth / img.naturalHeight, false), lm: l.map(function (q) { return { x: q.x, y: q.y, z: q.z }; }), n: r.landmarks.length } : { pose: null, n: 0 }; },
+    csv: buildCSV,
+    exportScene: function () { return { tissue: defaultGroup.userData.tissue[0], vessel: DEF_VESSEL, path: DEF_PATH, h: hDefault }; }
+  };
+
+  boot();
+})();
+</script>
